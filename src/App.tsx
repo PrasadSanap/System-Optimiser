@@ -1,0 +1,260 @@
+import { useEffect, useState } from 'react';
+import { useAppStore } from './store';
+import tauriApi from './services/tauri';
+import { formatBytes, formatPercent } from './utils/format';
+import { AISuggestions } from './components/AISuggestions';
+
+function App() {
+  const { darkMode, toggleDarkMode, systemMetrics, setSystemMetrics } = useAppStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'ai'>('dashboard');
+
+  useEffect(() => {
+    // Fetch initial metrics
+    fetchMetrics();
+
+    // Set up interval to fetch metrics every 5 seconds
+    const interval = setInterval(fetchMetrics, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchMetrics = async () => {
+    try {
+      const metrics = await tauriApi.system.getMetrics();
+      setSystemMetrics(metrics);
+      setIsLoading(false);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch metrics:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-foreground">Loading system metrics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center p-8 bg-red-100 dark:bg-red-900/20 rounded-lg">
+          <p className="text-red-600 dark:text-red-400 font-semibold mb-2">Error</p>
+          <p className="text-foreground">{error}</p>
+          <button
+            onClick={fetchMetrics}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white text-xl font-bold">SO</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">System Optimizer</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                AI-Powered Performance Dashboard
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            {/* Navigation */}
+            <nav className="flex space-x-2">
+              <button
+                onClick={() => setCurrentView('dashboard')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'dashboard'
+                    ? 'bg-primary text-white'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => setCurrentView('ai')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'ai'
+                    ? 'bg-primary text-white'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                🤖 AI Assistant
+              </button>
+            </nav>
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? '🌞' : '🌙'}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-8">
+        {currentView === 'dashboard' ? (
+          <>
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-2">System Metrics</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Real-time monitoring of your system's performance
+              </p>
+            </div>
+
+            {systemMetrics && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* CPU Card */}
+            <MetricCard
+              title="CPU Usage"
+              value={formatPercent(systemMetrics.cpu.usage_percent)}
+              subtitle={`${systemMetrics.cpu.cores} cores @ ${(systemMetrics.cpu.frequency_mhz / 1000).toFixed(2)} GHz`}
+              percentage={systemMetrics.cpu.usage_percent}
+              icon="🖥️"
+            />
+
+            {/* Memory Card */}
+            <MetricCard
+              title="Memory"
+              value={formatPercent(systemMetrics.memory.usage_percent)}
+              subtitle={`${formatBytes(systemMetrics.memory.used_bytes)} / ${formatBytes(systemMetrics.memory.total_bytes)}`}
+              percentage={systemMetrics.memory.usage_percent}
+              icon="💾"
+            />
+
+            {/* Disk Card */}
+            <MetricCard
+              title="Disk Space"
+              value={formatPercent(systemMetrics.disk.usage_percent)}
+              subtitle={`${formatBytes(systemMetrics.disk.used_bytes)} / ${formatBytes(systemMetrics.disk.total_bytes)}`}
+              percentage={systemMetrics.disk.usage_percent}
+              icon="💿"
+            />
+
+            {/* Network Card */}
+            <MetricCard
+              title="Network"
+              value={formatBytes(systemMetrics.network.bytes_sent + systemMetrics.network.bytes_received)}
+              subtitle={`↑ ${formatBytes(systemMetrics.network.bytes_sent)} ↓ ${formatBytes(systemMetrics.network.bytes_received)}`}
+              icon="🌐"
+            />
+          </div>
+            )}
+
+            {/* Coming Soon Section */}
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FeatureCard
+                title="Performance History"
+                description="Track your system's performance over time"
+                icon="📊"
+                status="Coming Soon"
+              />
+              <FeatureCard
+                title="Process Manager"
+                description="Manage running processes and services"
+                icon="⚙️"
+                status="Coming Soon"
+              />
+              <FeatureCard
+                title="Disk Cleanup"
+                description="Free up disk space automatically"
+                icon="🧹"
+                status="Coming Soon"
+              />
+            </div>
+          </>
+        ) : (
+          <AISuggestions />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border mt-12 py-6">
+        <div className="container mx-auto px-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          <p>System Optimizer v1.0.0 - Built with Tauri + React</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+interface MetricCardProps {
+  title: string;
+  value: string;
+  subtitle: string;
+  percentage?: number;
+  icon: string;
+}
+
+function MetricCard({ title, value, subtitle, percentage, icon }: MetricCardProps) {
+  const getColor = (pct?: number) => {
+    if (!pct) return 'bg-blue-500';
+    if (pct < 60) return 'bg-green-500';
+    if (pct < 80) return 'bg-amber-500';
+    return 'bg-red-500';
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-3xl">{icon}</span>
+        <span className="text-2xl font-bold">{value}</span>
+      </div>
+      <h3 className="font-semibold mb-1">{title}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{subtitle}</p>
+      {percentage !== undefined && (
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${getColor(percentage)}`}
+            style={{ width: `${Math.min(percentage, 100)}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface FeatureCardProps {
+  title: string;
+  description: string;
+  icon: string;
+  status: string;
+}
+
+function FeatureCard({ title, description, icon, status }: FeatureCardProps) {
+  return (
+    <div className="bg-card border border-border rounded-lg p-6 opacity-60">
+      <div className="text-4xl mb-4">{icon}</div>
+      <h3 className="font-semibold mb-2">{title}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{description}</p>
+      <span className="inline-block px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded-full text-xs font-medium">
+        {status}
+      </span>
+    </div>
+  );
+}
+
+export default App;
+
+// Made with Bob
