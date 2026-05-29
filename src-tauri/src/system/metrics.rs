@@ -233,21 +233,34 @@ impl MetricsCollector {
         processes
     }
 
-    pub fn kill_process(&mut self, pid: u32, _force: bool) -> Result<(), String> {
-        use sysinfo::Pid;
-        
+    pub fn kill_process(&mut self, pid: u32, force: bool) -> Result<(), String> {
+        use sysinfo::{Pid, Signal};
+
         self.system.refresh_processes();
-        
+
         let pid = Pid::from_u32(pid);
-        
+
         if let Some(process) = self.system.process(pid) {
-            if process.kill() {
-                Ok(())
-            } else {
-                Err("Failed to kill process".to_string())
+            // Send SIGTERM for graceful shutdown when force=false,
+            // or SIGKILL for immediate termination when force=true.
+            // On Windows, Signal::Term sends WM_CLOSE and Signal::Kill
+            // calls TerminateProcess, preserving the same semantic split.
+            let signal = if force { Signal::Kill } else { Signal::Term };
+
+            match process.kill_with(signal) {
+                Some(true) => Ok(()),
+                Some(false) => Err(format!(
+                    "Failed to send {} to process {}",
+                    if force { "SIGKILL" } else { "SIGTERM" },
+                    pid
+                )),
+                None => Err(format!(
+                    "Signal {} is not supported on this platform",
+                    if force { "SIGKILL" } else { "SIGTERM" }
+                )),
             }
         } else {
-            Err("Process not found".to_string())
+            Err(format!("Process {} not found", pid))
         }
     }
 }
