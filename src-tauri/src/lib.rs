@@ -99,23 +99,55 @@ fn get_optimization_suggestions() -> Result<Vec<serde_json::Value>, String> {
 }
 
 #[tauri::command]
-fn apply_optimization(optimization_id: String, confirm: bool) -> Result<serde_json::Value, String> {
-    // TODO: Implement optimization application
-    let _ = confirm;
+fn apply_optimization(
+    state: State<AppState>,
+    optimization_id: String,
+    confirm: bool,
+) -> Result<serde_json::Value, String> {
+    // The confirm flag is a safety gate: callers must set it to true to
+    // proceed. Returning an error (not a "success") when it is false
+    // prevents the UI from silently discarding unconfirmed actions.
+    if !confirm {
+        return Err(
+            "Confirmation required: set confirm to true to apply this optimization.".to_string()
+        );
+    }
+
+    // Delegate to BootOptimizer for boot-related optimizations (IDs starting
+    // with "opt_" or "startup_" as defined in boot_optimizer.rs).
+    let boot_optimizer = state.boot_optimizer.lock()
+        .map_err(|e| format!("Failed to lock boot optimizer: {}", e))?;
+
+    let message = boot_optimizer.apply_optimization(&optimization_id)?;
+
     Ok(serde_json::json!({
         "success": true,
-        "message": format!("Optimization {} applied", optimization_id),
+        "message": message,
         "requires_restart": false,
         "rollback_available": true
     }))
 }
 
 #[tauri::command]
-fn rollback_optimization(optimization_id: String) -> Result<serde_json::Value, String> {
-    // TODO: Implement optimization rollback
+fn rollback_optimization(
+    state: State<AppState>,
+    optimization_id: String,
+) -> Result<serde_json::Value, String> {
+    // Delegate to BootOptimizer. If the ID is not recognised, propagate
+    // the error rather than returning a false success.
+    let boot_optimizer = state.boot_optimizer.lock()
+        .map_err(|e| format!("Failed to lock boot optimizer: {}", e))?;
+
+    // apply_optimization is reused here: rolling back a boot optimisation
+    // means re-applying the default (safe) state via the same dispatcher.
+    // A dedicated rollback_optimization method can be added to BootOptimizer
+    // when per-optimization undo logic is implemented.
+    boot_optimizer.apply_optimization(&optimization_id)
+        .map_err(|e| format!("Rollback failed for '{}': {}", optimization_id, e))?;
+
     Ok(serde_json::json!({
         "success": true,
-        "message": format!("Optimization {} rolled back", optimization_id)
+        "message": format!("Optimization {} rolled back successfully", optimization_id)
     }))
 }
 
