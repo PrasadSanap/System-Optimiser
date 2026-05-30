@@ -138,39 +138,48 @@ fn get_ai_recommendations(
     context: Option<String>,
 ) -> Result<Vec<system::SmartSuggestion>, String> {
     let _ = (use_cloud, context);
+
+    // Collect metrics first and release that lock before acquiring ai_engine.
+    // Holding ai_engine while get_metrics() runs a full system refresh
+    // (which can take several hundred milliseconds) blocks every concurrent
+    // AI command for the duration of the refresh.
+    let metrics = {
+        let mut collector = state.metrics_collector.lock()
+            .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
+        collector.get_metrics()
+    };
+
     let ai_engine = state.ai_engine.lock()
         .map_err(|e| format!("Failed to lock AI engine: {}", e))?;
-    
-    // Get current metrics for context
-    let mut collector = state.metrics_collector.lock()
-        .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
-    let metrics = collector.get_metrics();
-    
+
     let suggestions = ai_engine.generate_suggestions(
         metrics.cpu.usage_percent as f64,
         metrics.memory.usage_percent as f64,
         metrics.disk.usage_percent as f64,
     );
-    
+
     Ok(suggestions)
 }
 
 #[tauri::command]
 fn get_ai_insights(state: State<AppState>) -> Result<Vec<system::AIInsight>, String> {
+    // Same lock-ordering fix as get_ai_recommendations: collect metrics under
+    // metrics_collector only, then acquire ai_engine for the computation step.
+    let metrics = {
+        let mut collector = state.metrics_collector.lock()
+            .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
+        collector.get_metrics()
+    };
+
     let ai_engine = state.ai_engine.lock()
         .map_err(|e| format!("Failed to lock AI engine: {}", e))?;
-    
-    // Get current metrics for context
-    let mut collector = state.metrics_collector.lock()
-        .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
-    let metrics = collector.get_metrics();
-    
+
     let insights = ai_engine.generate_insights(
         metrics.cpu.usage_percent as f64,
         metrics.memory.usage_percent as f64,
         metrics.disk.usage_percent as f64,
     );
-    
+
     Ok(insights)
 }
 
