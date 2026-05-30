@@ -207,10 +207,9 @@ fn apply_boot_optimization(
     }))
 }
 
-#[tauri::command]
-fn get_settings() -> Result<serde_json::Value, String> {
-    // TODO: Implement settings retrieval
-    Ok(serde_json::json!({
+/// Returns the hardcoded defaults used when no saved settings file exists.
+fn default_settings() -> serde_json::Value {
+    serde_json::json!({
         "general": {
             "auto_start": false,
             "minimize_to_tray": true,
@@ -234,13 +233,56 @@ fn get_settings() -> Result<serde_json::Value, String> {
             "auto_apply_safe_optimizations": false,
             "confirm_before_changes": true
         }
-    }))
+    })
+}
+
+/// Returns the path to `settings.json` inside Tauri's app config directory.
+fn settings_file(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to resolve app config directory: {}", e))?;
+    Ok(config_dir.join("settings.json"))
 }
 
 #[tauri::command]
-fn update_settings(settings: serde_json::Value) -> Result<serde_json::Value, String> {
-    // TODO: Implement settings update
-    let _ = settings;
+fn get_settings(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let path = settings_file(&app)?;
+
+    if !path.exists() {
+        // No saved file yet -- return defaults so the UI gets a well-formed
+        // object on first launch.
+        return Ok(default_settings());
+    }
+
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read settings file: {}", e))?;
+
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Settings file is corrupt or unreadable: {}", e))
+}
+
+#[tauri::command]
+fn update_settings(
+    app: tauri::AppHandle,
+    settings: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let path = settings_file(&app)?;
+
+    // Ensure the parent directory exists (created by Tauri on first launch,
+    // but guard against edge cases where the directory was removed).
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialise settings: {}", e))?;
+
+    std::fs::write(&path, content)
+        .map_err(|e| format!("Failed to write settings file: {}", e))?;
+
     Ok(serde_json::json!({
         "success": true,
         "message": "Settings updated successfully"
