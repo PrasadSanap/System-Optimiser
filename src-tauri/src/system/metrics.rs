@@ -217,12 +217,25 @@ impl MetricsCollector {
             })
             .collect();
 
-        // Sort processes
+        // Sort processes.
+        // cpu_percent is an f32 from sysinfo and can be NaN for processes that
+        // have not yet been sampled. partial_cmp returns None for NaN operands;
+        // calling unwrap() on that None panics and crashes the backend process.
+        // unwrap_or(Ordering::Equal) keeps NaN entries in their current position
+        // so the sort always completes without a panic.
         match sort_by {
-            Some("cpu") => processes.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap()),
+            Some("cpu") => processes.sort_by(|a, b| {
+                b.cpu_percent
+                    .partial_cmp(&a.cpu_percent)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }),
             Some("memory") => processes.sort_by(|a, b| b.memory_bytes.cmp(&a.memory_bytes)),
             Some("name") => processes.sort_by(|a, b| a.name.cmp(&b.name)),
-            _ => processes.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap()),
+            _ => processes.sort_by(|a, b| {
+                b.cpu_percent
+                    .partial_cmp(&a.cpu_percent)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }),
         }
 
         // Apply limit
