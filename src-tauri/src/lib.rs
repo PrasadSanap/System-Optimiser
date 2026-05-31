@@ -456,9 +456,12 @@ fn get_performance_history(
     time_range: String,
     resolution: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    // TODO: Implement performance history
+    // Performance history collection is not yet implemented.
+    // The not_implemented flag lets the frontend render a "coming soon"
+    // placeholder instead of an empty chart that looks like a broken feature.
     let _ = (metric, time_range, resolution);
     Ok(serde_json::json!({
+        "not_implemented": true,
         "metric": "cpu",
         "data_points": [],
         "average": 0.0,
@@ -488,12 +491,15 @@ fn set_api_key(provider: String, api_key: String) -> Result<serde_json::Value, S
 }
 
 #[tauri::command]
-fn get_optimization_history(limit: Option<u32>) -> Result<Vec<serde_json::Value>, String> {
-    // TODO: Retrieve applied-optimization records from a persistent store.
-    // Returns an empty list until persistence is implemented so the UI
-    // renders correctly instead of rejecting with a "Command not found" error.
+fn get_optimization_history(limit: Option<u32>) -> Result<serde_json::Value, String> {
+    // Optimization history persistence is not yet implemented.
+    // The not_implemented flag lets the frontend render a "coming soon"
+    // placeholder instead of an empty list that looks like a broken feature.
     let _ = limit;
-    Ok(vec![])
+    Ok(serde_json::json!({
+        "not_implemented": true,
+        "records": []
+    }))
 }
 
 #[tauri::command]
