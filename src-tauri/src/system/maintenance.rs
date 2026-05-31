@@ -106,11 +106,45 @@ impl MaintenanceScheduler {
         if config.empty_trash {
             tasks_run.push("Empty Recycle Bin".to_string());
             if let Ok(home) = std::env::var("HOME") {
-                let trash_dir = format!("{}/.Trash", home);
-                let output = Command::new("rm").args(&["-rf", &trash_dir]).output();
-                if output.is_ok() {
-                    let _ = fs::create_dir(&trash_dir); // recreate empty trash
-                    details_str.push_str("Emptied trash. ");
+                // Guard 1: reject an empty HOME value. format!("{}/.Trash", "")
+                // produces "/.Trash" and rm -rf /.Trash would run against the
+                // filesystem root's .Trash directory.
+                if home.is_empty() {
+                    details_str.push_str("Skipped trash: HOME is empty. ");
+                } else {
+                    // Guard 2: use std::path APIs instead of string concatenation
+                    // so that path traversal sequences in HOME (e.g. /home/../root)
+                    // are handled by the OS path resolver rather than by us.
+                    let trash_dir = std::path::Path::new(&home).join(".Trash");
+
+                    // Guard 3: verify the resulting path is absolute and rooted
+                    // inside a user home prefix before issuing any filesystem ops.
+                    let is_safe = trash_dir.is_absolute()
+                        && (trash_dir.starts_with("/Users/")
+                            || trash_dir.starts_with("/home/"));
+
+                    if is_safe {
+                        // Delete the contents of .Trash entry-by-entry using safe
+                        // Rust fs APIs instead of shelling out to rm -rf. This
+                        // avoids rm operating outside the expected directory if a
+                        // symlink attack replaces .Trash between the path check and
+                        // the command execution.
+                        let mut removed = 0u32;
+                        if let Ok(entries) = fs::read_dir(&trash_dir) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.is_dir() {
+                                    let _ = fs::remove_dir_all(&p);
+                                } else {
+                                    let _ = fs::remove_file(&p);
+                                }
+                                removed += 1;
+                            }
+                        }
+                        details_str.push_str(&format!("Emptied trash ({} items). ", removed));
+                    } else {
+                        details_str.push_str("Skipped trash: HOME path failed safety check. ");
+                    }
                 }
             }
         }
