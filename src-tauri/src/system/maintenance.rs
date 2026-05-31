@@ -37,6 +37,12 @@ pub struct MaintenanceLog {
     pub details: String,
 }
 
+// Maximum number of log entries kept in memory.
+// execute_maintenance() is called repeatedly over the lifetime of the process.
+// Without a cap every invocation appends one entry and the Vec grows without
+// bound, leaking heap memory proportional to the number of maintenance cycles.
+const MAX_LOG_ENTRIES: usize = 100;
+
 pub struct MaintenanceScheduler {
     pub config: Arc<Mutex<MaintenanceConfig>>,
     pub logs: Arc<Mutex<Vec<MaintenanceLog>>>,
@@ -123,7 +129,15 @@ impl MaintenanceScheduler {
                 status: "Success".to_string(),
                 details: details_str.trim().to_string(),
             };
-            self.logs.lock().unwrap().push(log);
+            let mut logs = self.logs.lock().unwrap();
+            logs.push(log);
+            // Keep only the most recent MAX_LOG_ENTRIES entries.
+            // Draining from the front is O(n) but acceptable for a small Vec
+            // that is written infrequently (once per maintenance cycle).
+            if logs.len() > MAX_LOG_ENTRIES {
+                let overflow = logs.len() - MAX_LOG_ENTRIES;
+                logs.drain(0..overflow);
+            }
         }
     }
 }
