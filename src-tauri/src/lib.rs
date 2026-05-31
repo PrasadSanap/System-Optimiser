@@ -468,18 +468,42 @@ fn get_performance_history(
 }
 
 #[tauri::command]
-fn set_api_key(provider: String, api_key: String) -> Result<serde_json::Value, String> {
-    // Validate provider
+fn set_api_key(
+    app: tauri::AppHandle,
+    provider: String,
+    api_key: String,
+) -> Result<serde_json::Value, String> {
+    use tauri::Manager;
+
+    // Validate provider against an explicit allowlist.
     if provider != "openai" && provider != "anthropic" {
-        return Err(format!("Unknown provider '{}'. Must be 'openai' or 'anthropic'.", provider));
+        return Err(format!(
+            "Unknown provider '{}'. Must be 'openai' or 'anthropic'.",
+            provider
+        ));
     }
-    // Validate key is non-empty
-    if api_key.trim().is_empty() {
+
+    let trimmed_key = api_key.trim().to_string();
+    if trimmed_key.is_empty() {
         return Err("API key must not be empty.".to_string());
     }
-    // TODO: Persist the key securely (e.g. via the OS keychain or an encrypted config file).
-    // For now the key is accepted and acknowledged so the frontend flow works end-to-end.
-    let _ = api_key;
+
+    // Persist the key to a provider-specific file inside Tauri's app config
+    // directory. The config directory is created automatically on first write.
+    // This is the same directory used by settings.json so the path is already
+    // known to the OS and scoped to this application.
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to resolve app config directory: {}", e))?;
+
+    std::fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create config directory: {}", e))?;
+
+    let key_file = config_dir.join(format!("{}_api_key.txt", provider));
+    std::fs::write(&key_file, &trimmed_key)
+        .map_err(|e| format!("Failed to save API key: {}", e))?;
+
     Ok(serde_json::json!({
         "success": true,
         "message": format!("{} API key saved successfully", provider),
