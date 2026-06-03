@@ -76,8 +76,8 @@ impl FocusModeManager {
                 let name = process.name().to_string().to_lowercase();
                 
                 // Check if process matches any blacklist entry
-                let is_blacklisted = self.settings.blacklist.iter().any(|b| name.contains(&b.to_lowercase()));
-                let is_whitelisted = self.settings.whitelist.iter().any(|w| name.contains(&w.to_lowercase()));
+                let is_blacklisted = self.settings.blacklist.iter().any(|b| name.eq_ignore_ascii_case(b));
+                let is_whitelisted = self.settings.whitelist.iter().any(|w| name.eq_ignore_ascii_case(w));
 
                 if is_blacklisted && !is_whitelisted {
                     // Try to send stop signal
