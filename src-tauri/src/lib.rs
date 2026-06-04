@@ -12,6 +12,30 @@ struct AppState {
     ai_engine: Mutex<AISuggestionsEngine>,
     focus_mode_manager: Mutex<system::FocusModeManager>,
     maintenance_scheduler: Mutex<system::MaintenanceScheduler>,
+    // Throttles system-modifying commands so rapid repeated calls cannot
+    // exhaust resources or drive the system into an unstable state.
+    rate_limiter: Mutex<system::RateLimiter>,
+}
+
+use std::time::Duration;
+
+// Rate limits for system-modifying commands, expressed as (max_calls, window).
+// kill_process is permitted at most once per second; the optimization commands
+// are capped at five calls per minute. These bounds are generous for normal
+// interactive use but block scripted floods.
+const KILL_PROCESS_LIMIT: (usize, Duration) = (1, Duration::from_secs(1));
+const OPTIMIZATION_LIMIT: (usize, Duration) = (5, Duration::from_secs(60));
+
+// Apply the rate limit for a command, returning an error when the caller has
+// exceeded the allowed rate within the current window.
+fn enforce_rate_limit(
+    state: &AppState,
+    command: &str,
+    limit: (usize, Duration),
+) -> Result<(), String> {
+    let mut limiter = state.rate_limiter.lock()
+        .map_err(|e| format!("Failed to lock rate limiter: {}", e))?;
+    limiter.check(command, limit.0, limit.1)
 }
 
 // Whitelist of optimization IDs the application recognizes. Any ID supplied to
@@ -81,6 +105,8 @@ fn kill_process(
     pid: u32,
     force: Option<bool>,
 ) -> Result<String, String> {
+    enforce_rate_limit(&state, "kill_process", KILL_PROCESS_LIMIT)?;
+
     let mut collector = state.metrics_collector.lock()
         .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
     collector.kill_process(pid, force.unwrap_or(false))?;
@@ -171,6 +197,8 @@ fn apply_optimization(
         );
     }
 
+    enforce_rate_limit(&state, "apply_optimization", OPTIMIZATION_LIMIT)?;
+
     // Reject any ID that is not a recognized optimization before touching state.
     validate_optimization_id(&optimization_id)?;
 
@@ -194,6 +222,8 @@ fn rollback_optimization(
     state: State<AppState>,
     optimization_id: String,
 ) -> Result<serde_json::Value, String> {
+    enforce_rate_limit(&state, "rollback_optimization", OPTIMIZATION_LIMIT)?;
+
     // Reject any ID that is not a recognized optimization before touching state.
     validate_optimization_id(&optimization_id)?;
 
@@ -404,9 +434,11 @@ fn apply_boot_optimization(
     state: State<AppState>,
     optimization_id: String,
 ) -> Result<serde_json::Value, String> {
+    enforce_rate_limit(&state, "apply_boot_optimization", OPTIMIZATION_LIMIT)?;
+
     let boot_optimizer = state.boot_optimizer.lock()
         .map_err(|e| format!("Failed to lock boot optimizer: {}", e))?;
-    
+
     let message = boot_optimizer.apply_optimization(&optimization_id)?;
     
     Ok(serde_json::json!({
@@ -651,6 +683,7 @@ pub fn run() {
             ai_engine: Mutex::new(AISuggestionsEngine::new()),
             focus_mode_manager: Mutex::new(system::FocusModeManager::new()),
             maintenance_scheduler: Mutex::new(system::MaintenanceScheduler::new()),
+            rate_limiter: Mutex::new(system::RateLimiter::new()),
         })
         .setup(|app| {
             let handle = app.handle().clone();
