@@ -14,6 +14,48 @@ struct AppState {
     maintenance_scheduler: Mutex<system::MaintenanceScheduler>,
 }
 
+// Whitelist of optimization IDs the application recognizes. Any ID supplied to
+// an optimization command must appear here before it is processed. Validating
+// against an explicit allow list prevents arbitrary strings (for example path
+// traversal sequences or command fragments) from reaching downstream handlers.
+const VALID_OPTIMIZATION_IDS: &[&str] = &["opt_1", "opt_2", "opt_3", "opt_4"];
+
+// Maximum accepted length for an optimization ID. Known IDs are short, so a
+// tight bound rejects oversized input before any further checks run.
+const MAX_OPTIMIZATION_ID_LEN: usize = 64;
+
+// Validate an optimization ID before it is used by any command.
+//
+// The check enforces three rules:
+//   1. The ID is not empty and does not exceed MAX_OPTIMIZATION_ID_LEN.
+//   2. The ID contains only lowercase ASCII letters, digits, and underscores,
+//      so it can never carry path separators or shell metacharacters.
+//   3. The ID is present in VALID_OPTIMIZATION_IDS.
+fn validate_optimization_id(optimization_id: &str) -> Result<(), String> {
+    if optimization_id.is_empty() || optimization_id.len() > MAX_OPTIMIZATION_ID_LEN {
+        return Err("Invalid optimization ID: unexpected length.".to_string());
+    }
+
+    let well_formed = optimization_id
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    if !well_formed {
+        return Err(
+            "Invalid optimization ID: only lowercase letters, digits, and underscores are allowed."
+                .to_string(),
+        );
+    }
+
+    if !VALID_OPTIMIZATION_IDS.contains(&optimization_id) {
+        return Err(format!(
+            "Unknown optimization ID '{}'. It is not a recognized optimization.",
+            optimization_id
+        ));
+    }
+
+    Ok(())
+}
+
 // System Metrics Commands
 #[tauri::command]
 fn get_system_metrics(state: State<AppState>) -> Result<system::SystemMetrics, String> {
@@ -129,6 +171,9 @@ fn apply_optimization(
         );
     }
 
+    // Reject any ID that is not a recognized optimization before touching state.
+    validate_optimization_id(&optimization_id)?;
+
     // Delegate to BootOptimizer for boot-related optimizations (IDs starting
     // with "opt_" or "startup_" as defined in boot_optimizer.rs).
     let boot_optimizer = state.boot_optimizer.lock()
@@ -149,6 +194,9 @@ fn rollback_optimization(
     state: State<AppState>,
     optimization_id: String,
 ) -> Result<serde_json::Value, String> {
+    // Reject any ID that is not a recognized optimization before touching state.
+    validate_optimization_id(&optimization_id)?;
+
     // Delegate to BootOptimizer. If the ID is not recognised, propagate
     // the error rather than returning a false success.
     let boot_optimizer = state.boot_optimizer.lock()
@@ -672,4 +720,43 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_optimization_id;
+
+    #[test]
+    fn accepts_known_ids() {
+        for id in ["opt_1", "opt_2", "opt_3", "opt_4"] {
+            assert!(validate_optimization_id(id).is_ok(), "expected {id} to be valid");
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_but_well_formed_id() {
+        assert!(validate_optimization_id("opt_999").is_err());
+    }
+
+    #[test]
+    fn rejects_path_traversal() {
+        // Path separators and dots are outside the allowed character set, so
+        // an injection attempt is rejected before the whitelist check runs.
+        assert!(validate_optimization_id("../../system.conf").is_err());
+        assert!(validate_optimization_id("opt_../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn rejects_empty_and_oversized() {
+        assert!(validate_optimization_id("").is_err());
+        let oversized = "a".repeat(65);
+        assert!(validate_optimization_id(&oversized).is_err());
+    }
+
+    #[test]
+    fn rejects_uppercase_and_symbols() {
+        assert!(validate_optimization_id("OPT_1").is_err());
+        assert!(validate_optimization_id("opt-1").is_err());
+        assert!(validate_optimization_id("drop_table;").is_err());
+    }
 }
