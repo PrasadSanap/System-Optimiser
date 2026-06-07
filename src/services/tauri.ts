@@ -28,6 +28,9 @@ import type {
   NotificationEvent,
   FocusModeSettings,
   FocusModeStatus,
+  HardwareHealthData,
+  DiskHealthInfo,
+  BatteryHealthInfo,
 } from '../types';
 
 /**
@@ -281,6 +284,32 @@ export const events = {
 };
 
 /**
+ * Hardware Health API
+ */
+export const hardwareHealthApi = {
+  /**
+   * Get full hardware health data (disks + battery + alerts)
+   */
+  async getHardwareHealth(): Promise<HardwareHealthData> {
+    return invoke<HardwareHealthData>('get_hardware_health');
+  },
+
+  /**
+   * Get disk health data only
+   */
+  async getDiskHealth(): Promise<DiskHealthInfo[]> {
+    return invoke<DiskHealthInfo[]>('get_disk_health');
+  },
+
+  /**
+   * Get battery health data only
+   */
+  async getBatteryHealth(): Promise<BatteryHealthInfo | null> {
+    return invoke<BatteryHealthInfo | null>('get_battery_health');
+  },
+};
+
+/**
  * Combined API export
  */
 export const tauriApi = {
@@ -290,6 +319,7 @@ export const tauriApi = {
   ai: aiApi,
   settings: settingsApi,
   performance: performanceApi,
+  hardwareHealth: hardwareHealthApi,
   events,
 };
 

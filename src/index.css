@@ -112,4 +112,831 @@
   animation: fadeIn 0.2s ease-out;
 }
 
+/* ── Hardware Health Dashboard ─────────────────────────────────────────────── */
+
+/* Glassmorphism Card */
+.glass-card {
+  background: hsl(var(--card) / 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 16px;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px hsl(var(--foreground) / 0.08);
+}
+
+/* Container */
+.hw-health-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Loading */
+.hw-health-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: hsl(var(--foreground) / 0.6);
+}
+
+.hw-health-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.hw-health-loading-sub {
+  font-size: 0.85rem;
+  opacity: 0.6;
+  margin-top: 4px;
+}
+
+/* Error */
+.hw-health-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  text-align: center;
+  padding: 32px;
+}
+
+.hw-health-error-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.hw-health-error h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.hw-health-error p {
+  color: hsl(var(--foreground) / 0.6);
+  margin-bottom: 20px;
+}
+
+.hw-health-retry-btn {
+  padding: 10px 24px;
+  background: hsl(var(--primary));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hw-health-retry-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.03);
+}
+
+/* ── Alert Banner ────────────────────────────────────────────────────────── */
+
+.hw-alert-banner {
+  border-radius: 12px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hw-alert-critical {
+  background: linear-gradient(135deg, hsl(0 84% 60% / 0.15), hsl(0 84% 60% / 0.08));
+  border: 1px solid hsl(0 84% 60% / 0.3);
+}
+
+.hw-alert-warning {
+  background: linear-gradient(135deg, hsl(38 92% 50% / 0.15), hsl(38 92% 50% / 0.08));
+  border: 1px solid hsl(38 92% 50% / 0.3);
+}
+
+.hw-alert-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.hw-alert-banner-main:hover {
+  background: hsl(var(--foreground) / 0.03);
+}
+
+.hw-alert-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.hw-alert-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hw-alert-content strong {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.hw-alert-content span {
+  font-size: 0.85rem;
+  color: hsl(var(--foreground) / 0.7);
+}
+
+.hw-alert-badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: hsl(var(--foreground) / 0.1);
+  flex-shrink: 0;
+}
+
+.hw-alert-chevron {
+  font-size: 1.1rem;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  color: hsl(var(--foreground) / 0.5);
+}
+
+.hw-alert-chevron-open {
+  transform: rotate(180deg);
+}
+
+.hw-alert-expanded {
+  padding: 0 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hw-alert-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.hw-alert-item-critical {
+  background: hsl(0 84% 60% / 0.08);
+}
+
+.hw-alert-item-warning {
+  background: hsl(38 92% 50% / 0.08);
+}
+
+/* ── Hero Section ────────────────────────────────────────────────────────── */
+
+.hw-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, hsl(var(--card) / 0.8), hsl(var(--primary) / 0.05));
+}
+
+.hw-hero-left {
+  flex: 1;
+}
+
+.hw-hero-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.hw-hero-subtitle {
+  color: hsl(var(--foreground) / 0.6);
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+}
+
+.hw-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hw-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: hsl(var(--foreground) / 0.06);
+  border: 1px solid hsl(var(--border) / 0.4);
+}
+
+.hw-hero-badge-alert {
+  background: hsl(38 92% 50% / 0.12);
+  border-color: hsl(38 92% 50% / 0.3);
+  color: hsl(38 70% 45%);
+}
+
+.dark .hw-hero-badge-alert {
+  color: hsl(38 92% 65%);
+}
+
+.hw-hero-right {
+  flex-shrink: 0;
+  margin-left: 32px;
+}
+
+.hw-hero-no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: hsl(var(--foreground) / 0.4);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.hw-hero-no-data-sub {
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+/* ── Health Gauge ────────────────────────────────────────────────────────── */
+
+.hw-gauge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hw-gauge-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hw-gauge-track {
+  opacity: 0.12;
+}
+
+.hw-gauge-fill {
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: gaugeAppear 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes gaugeAppear {
+  from {
+    stroke-dashoffset: var(--circumference, 999);
+  }
+}
+
+.hw-gauge-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.hw-gauge-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hw-gauge-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: hsl(var(--foreground) / 0.5);
+  margin-top: 2px;
+}
+
+/* ── Grid Layout ─────────────────────────────────────────────────────────── */
+
+.hw-health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.hw-health-grid-full .hw-health-section {
+  grid-column: 1 / -1;
+}
+
+.hw-health-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.hw-health-section-icon {
+  font-size: 1.3rem;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.hw-card {
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.hw-card-dimmed {
+  opacity: 0.6;
+}
+
+.hw-card-dimmed:hover {
+  transform: none;
+}
+
+.hw-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.hw-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hw-card-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.hw-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hw-card-subtitle {
+  font-size: 0.8rem;
+  color: hsl(var(--foreground) / 0.5);
+}
+
+.hw-card-admin-notice {
+  padding: 12px 16px;
+  background: hsl(var(--foreground) / 0.04);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: hsl(var(--foreground) / 0.6);
+}
+
+/* S.M.A.R.T. Status */
+.hw-card-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.hw-smart-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.hw-smart-badge-passed {
+  background: hsl(142 71% 45% / 0.12);
+  color: hsl(142 71% 35%);
+}
+
+.dark .hw-smart-badge-passed {
+  color: hsl(142 71% 55%);
+}
+
+.hw-smart-badge-failed {
+  background: hsl(0 84% 60% / 0.12);
+  color: hsl(0 84% 50%);
+  animation: pulseAlert 2s ease-in-out infinite;
+}
+
+.dark .hw-smart-badge-failed {
+  color: hsl(0 84% 65%);
+}
+
+.hw-smart-badge-unknown {
+  background: hsl(var(--foreground) / 0.08);
+  color: hsl(var(--foreground) / 0.5);
+}
+
+.hw-admin-badge {
+  font-size: 0.75rem;
+  color: hsl(38 92% 45%);
+}
+
+.dark .hw-admin-badge {
+  color: hsl(38 92% 60%);
+}
+
+@keyframes pulseAlert {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ── Attribute Grid ──────────────────────────────────────────────────────── */
+
+.hw-attr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.hw-attr-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 8px;
+  border-radius: 12px;
+  background: hsl(var(--foreground) / 0.03);
+  border: 1px solid hsl(var(--border) / 0.3);
+  transition: background 0.2s;
+}
+
+.hw-attr-tile:hover {
+  background: hsl(var(--foreground) / 0.06);
+}
+
+.hw-attr-icon {
+  font-size: 1.3rem;
+  margin-bottom: 6px;
+}
+
+.hw-attr-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.hw-attr-label {
+  font-size: 0.7rem;
+  color: hsl(var(--foreground) / 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.hw-attr-good .hw-attr-value {
+  color: hsl(142 71% 45%);
+}
+
+.dark .hw-attr-good .hw-attr-value {
+  color: hsl(142 71% 55%);
+}
+
+.hw-attr-warning .hw-attr-value {
+  color: hsl(38 92% 50%);
+}
+
+.hw-attr-critical .hw-attr-value {
+  color: hsl(0 84% 60%);
+}
+
+/* ── Battery Capacity Bar ────────────────────────────────────────────────── */
+
+.hw-battery-capacity {
+  margin-bottom: 16px;
+}
+
+.hw-battery-capacity-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+  color: hsl(var(--foreground) / 0.7);
+}
+
+.hw-battery-bar-track {
+  position: relative;
+  height: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hw-battery-bar-design {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: hsl(var(--foreground) / 0.08);
+  border-radius: 8px;
+}
+
+.hw-battery-bar-current {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 8px;
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: barFillIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes barFillIn {
+  from { width: 0 !important; }
+}
+
+.hw-battery-capacity-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.hw-battery-capacity-lost {
+  font-size: 0.75rem;
+  color: hsl(var(--foreground) / 0.4);
+}
+
+/* Battery Cycle Section */
+.hw-battery-cycle-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: hsl(var(--foreground) / 0.03);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.hw-battery-cycle-ring-container {
+  flex-shrink: 0;
+}
+
+.hw-battery-cycle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hw-battery-cycle-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.hw-battery-cycle-desc {
+  font-size: 0.8rem;
+  color: hsl(var(--foreground) / 0.5);
+}
+
+/* Cycle Progress Ring */
+.hw-cycle-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hw-cycle-ring-text {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Battery Icon SVG */
+.hw-battery-icon-wrapper {
+  flex-shrink: 0;
+}
+
+.hw-battery-fill-anim {
+  animation: batteryFillUp 1s ease-out forwards;
+}
+
+@keyframes batteryFillUp {
+  from {
+    height: 0;
+    y: 42;
+  }
+}
+
+.hw-charging-bolt {
+  animation: boltFlash 2s ease-in-out infinite;
+}
+
+@keyframes boltFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Lifespan Bar ────────────────────────────────────────────────────────── */
+
+.hw-lifespan {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+.hw-lifespan-ok {
+  background: hsl(142 71% 45% / 0.05);
+  border-color: hsl(142 71% 45% / 0.2);
+}
+
+.hw-lifespan-warning {
+  background: hsl(38 92% 50% / 0.05);
+  border-color: hsl(38 92% 50% / 0.2);
+}
+
+.hw-lifespan-critical {
+  background: hsl(0 84% 60% / 0.05);
+  border-color: hsl(0 84% 60% / 0.2);
+  animation: pulseAlert 3s ease-in-out infinite;
+}
+
+.hw-lifespan-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.hw-lifespan-bar-track {
+  height: 6px;
+  background: hsl(var(--foreground) / 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.hw-lifespan-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hw-lifespan-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hw-lifespan-time {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: hsl(var(--foreground) / 0.7);
+}
+
+.hw-lifespan-action {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+
+.hw-lifespan-critical .hw-lifespan-action {
+  background: hsl(0 84% 60% / 0.12);
+  color: hsl(0 84% 50%);
+}
+
+.dark .hw-lifespan-critical .hw-lifespan-action {
+  color: hsl(0 84% 65%);
+}
+
+.hw-lifespan-warning .hw-lifespan-action {
+  background: hsl(38 92% 50% / 0.12);
+  color: hsl(38 70% 40%);
+}
+
+.dark .hw-lifespan-warning .hw-lifespan-action {
+  color: hsl(38 92% 60%);
+}
+
+/* ── Smartctl Missing Card ───────────────────────────────────────────────── */
+
+.hw-smartctl-missing {
+  text-align: center;
+  padding: 40px 32px;
+}
+
+.hw-smartctl-missing-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.hw-smartctl-missing h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.hw-smartctl-missing > p {
+  color: hsl(var(--foreground) / 0.6);
+  margin-bottom: 20px;
+}
+
+.hw-smartctl-install {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  max-width: 340px;
+  margin: 0 auto 16px;
+}
+
+.hw-smartctl-install strong {
+  font-size: 0.82rem;
+  margin-top: 6px;
+}
+
+.hw-smartctl-cmd {
+  display: block;
+  padding: 8px 14px;
+  background: hsl(var(--foreground) / 0.06);
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.82rem;
+}
+
+.hw-smartctl-note {
+  font-size: 0.8rem;
+  color: hsl(var(--foreground) / 0.4);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .hw-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hw-hero {
+    flex-direction: column;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .hw-hero-right {
+    margin-left: 0;
+    margin-top: 20px;
+  }
+
+  .hw-hero-badges {
+    justify-content: center;
+  }
+
+  .hw-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .hw-attr-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* Made with Bob */
+

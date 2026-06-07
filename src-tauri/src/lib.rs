@@ -12,6 +12,7 @@ struct AppState {
     ai_engine: Mutex<AISuggestionsEngine>,
     focus_mode_manager: Mutex<system::FocusModeManager>,
     maintenance_scheduler: Mutex<system::MaintenanceScheduler>,
+    hardware_health: Mutex<system::HardwareHealthCollector>,
     // Throttles system-modifying commands so rapid repeated calls cannot
     // exhaust resources or drive the system into an unstable state.
     rate_limiter: Mutex<system::RateLimiter>,
@@ -673,6 +674,28 @@ fn get_maintenance_logs(state: State<AppState>) -> Result<Vec<system::Maintenanc
     Ok(scheduler.get_logs())
 }
 
+// Hardware Health Commands
+#[tauri::command]
+fn get_hardware_health(state: State<AppState>) -> Result<system::HardwareHealthData, String> {
+    let mut collector = state.hardware_health.lock()
+        .map_err(|e| format!("Failed to lock hardware health collector: {}", e))?;
+    Ok(collector.get_hardware_health())
+}
+
+#[tauri::command]
+fn get_disk_health(state: State<AppState>) -> Result<Vec<system::DiskHealthInfo>, String> {
+    let mut collector = state.hardware_health.lock()
+        .map_err(|e| format!("Failed to lock hardware health collector: {}", e))?;
+    Ok(collector.get_disk_health())
+}
+
+#[tauri::command]
+fn get_battery_health(state: State<AppState>) -> Result<Option<system::BatteryHealthInfo>, String> {
+    let mut collector = state.hardware_health.lock()
+        .map_err(|e| format!("Failed to lock hardware health collector: {}", e))?;
+    Ok(collector.get_battery_health())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -683,6 +706,7 @@ pub fn run() {
             ai_engine: Mutex::new(AISuggestionsEngine::new()),
             focus_mode_manager: Mutex::new(system::FocusModeManager::new()),
             maintenance_scheduler: Mutex::new(system::MaintenanceScheduler::new()),
+            hardware_health: Mutex::new(system::HardwareHealthCollector::new()),
             rate_limiter: Mutex::new(system::RateLimiter::new()),
         })
         .setup(|app| {
@@ -750,6 +774,9 @@ pub fn run() {
             get_maintenance_config,
             update_maintenance_config,
             get_maintenance_logs,
+            get_hardware_health,
+            get_disk_health,
+            get_battery_health,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
