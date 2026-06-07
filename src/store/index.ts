@@ -10,6 +10,7 @@ import type {
   FocusModeStatus,
   MaintenanceConfig,
   MaintenanceLog,
+  DeepSleepStatus,
 } from '../types';
 
 interface AppStore {
@@ -52,6 +53,10 @@ interface AppStore {
   setMaintenanceLogs: (logs: MaintenanceLog[]) => void;
   setIsLoadingMetrics: (loading: boolean) => void;
   setIsLoadingOptimizations: (loading: boolean) => void;
+  
+  // Deep Sleep
+  deepSleepStatus: DeepSleepStatus | null;
+  setDeepSleepStatus: (status: DeepSleepStatus | null) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -77,6 +82,9 @@ export const useAppStore = create<AppStore>((set) => ({
   // Initial Loading States
   isLoadingMetrics: false,
   isLoadingOptimizations: false,
+  
+  // Initial Deep Sleep State
+  deepSleepStatus: null,
   
   // Actions
   setCurrentView: (view) => set({ currentView: view }),
@@ -108,6 +116,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setMaintenanceLogs: (logs) => set({ maintenanceLogs: logs }),
   setIsLoadingMetrics: (loading) => set({ isLoadingMetrics: loading }),
   setIsLoadingOptimizations: (loading) => set({ isLoadingOptimizations: loading }),
+  setDeepSleepStatus: (status) => set({ deepSleepStatus: status }),
 }));
 
 // Initialize dark mode on app start

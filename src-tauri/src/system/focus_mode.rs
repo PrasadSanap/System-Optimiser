@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use sysinfo::{Pid, System, Signal};
-use std::time::{SystemTime, UNIX_EPOCH};
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FocusModeSettings {
