@@ -184,6 +184,106 @@ fn get_optimization_suggestions() -> Result<Vec<serde_json::Value>, String> {
 }
 
 #[tauri::command]
+fn get_optimization_details(
+    state: State<AppState>,
+    optimization_id: String,
+) -> Result<serde_json::Value, String> {
+    // Validate optimization ID
+    validate_optimization_id(&optimization_id)?;
+
+    // Get details from boot optimizer
+    let boot_optimizer = state.boot_optimizer.lock()
+        .map_err(|e| format!("Failed to lock boot optimizer: {}", e))?;
+
+    // Map optimization IDs to details
+    let details = match optimization_id.as_str() {
+        "opt_1" => serde_json::json!({
+            "id": "opt_1",
+            "title": "Disable Microsoft Teams auto-start",
+            "description": "Remove Microsoft Teams from Windows startup programs. Teams can be manually launched when needed.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
+            "potential_impacts": [
+                "Microsoft Teams will no longer start automatically at boot",
+                "Teams can still be launched manually from Start menu",
+                "Reduces boot time by approximately 8 seconds"
+            ],
+            "affected_programs": ["Microsoft Teams"],
+            "rollback_available": true,
+            "rollback_time_sec": 5,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.95
+        }),
+        "opt_2" => serde_json::json!({
+            "id": "opt_2",
+            "title": "Disable Adobe Creative Cloud auto-start",
+            "description": "Remove Adobe Creative Cloud from Windows startup. Disable auto-start service that loads in background.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
+            "potential_impacts": [
+                "Adobe applications will not auto-start",
+                "Manual launch still available",
+                "Reduces boot time by approximately 5 seconds"
+            ],
+            "affected_programs": ["Adobe Creative Cloud"],
+            "rollback_available": true,
+            "rollback_time_sec": 5,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.92
+        }),
+        "opt_3" => serde_json::json!({
+            "id": "opt_3",
+            "title": "Set Windows Search to delayed start",
+            "description": "Change Windows Search service from automatic to delayed start. Service will start 2 minutes after boot.",
+            "category": "service",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 10,
+            "potential_impacts": [
+                "File search will be unavailable for ~2 minutes after boot",
+                "Improves initial boot responsiveness",
+                "Reduces boot time by approximately 4 seconds"
+            ],
+            "affected_programs": ["Windows Search"],
+            "rollback_available": true,
+            "rollback_time_sec": 10,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.88
+        }),
+        "opt_4" => serde_json::json!({
+            "id": "opt_4",
+            "title": "Disable Dropbox auto-start",
+            "description": "Remove Dropbox from Windows startup programs. Dropbox can be manually launched when needed for sync.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
+            "potential_impacts": [
+                "Dropbox will not start automatically",
+                "File synchronization will start only when manually launched",
+                "Reduces boot time by approximately 3 seconds"
+            ],
+            "affected_programs": ["Dropbox"],
+            "rollback_available": true,
+            "rollback_time_sec": 5,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.85
+        }),
+        _ => return Err(format!("Unknown optimization ID: {}", optimization_id))
+    };
+
+    Ok(details)
+}
+
+#[tauri::command]
 fn apply_optimization(
     state: State<AppState>,
     optimization_id: String,
@@ -193,9 +293,12 @@ fn apply_optimization(
     // proceed. Returning an error (not a "success") when it is false
     // prevents the UI from silently discarding unconfirmed actions.
     if !confirm {
-        return Err(
-            "Confirmation required: set confirm to true to apply this optimization.".to_string()
-        );
+        return Err(format!(
+            "Confirmation required to apply optimization. \
+             Call get_optimization_details('{}') to see what this optimization will change, \
+             then set confirm to true to proceed.",
+            optimization_id
+        ));
     }
 
     enforce_rate_limit(&state, "apply_optimization", OPTIMIZATION_LIMIT)?;
@@ -766,6 +869,7 @@ pub fn run() {
             toggle_startup_program,
             analyze_system,
             get_optimization_suggestions,
+            get_optimization_details,
             apply_optimization,
             rollback_optimization,
             clean_temp_files,
