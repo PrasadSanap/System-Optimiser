@@ -52,7 +52,7 @@ impl AISuggestionsEngine {
         Self {}
     }
 
-    pub fn generate_suggestions(&self, cpu_usage: f64, memory_usage: f64, disk_usage: f64) -> Vec<SmartSuggestion> {
+    pub fn generate_suggestions(&self, cpu_usage: f64, memory_usage: f64, disk_usage: f64, boot_time_ms: Option<u64>) -> Vec<SmartSuggestion> {
         let mut suggestions = Vec::new();
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -129,35 +129,48 @@ impl AISuggestionsEngine {
             });
         }
 
-        // Boot time optimization suggestion
-        suggestions.push(SmartSuggestion {
-            id: "boot_opt_1".to_string(),
-            title: "Optimize Boot Speed".to_string(),
-            description: "Your system takes 45 seconds to boot. AI analysis suggests it could boot in 25 seconds.".to_string(),
-            category: "boot".to_string(),
-            priority: "medium".to_string(),
-            impact: "medium".to_string(),
-            reasoning: "Machine learning analysis of your boot patterns shows that several startup programs are rarely used immediately after boot. Disabling them could save 20 seconds without affecting your workflow.".to_string(),
-            actions: vec![
-                SuggestionAction {
-                    id: "boot_action_1".to_string(),
-                    label: "Analyze boot programs".to_string(),
-                    action_type: "analyze".to_string(),
-                    auto_applicable: false,
-                },
-                SuggestionAction {
-                    id: "boot_action_2".to_string(),
-                    label: "Apply safe optimizations".to_string(),
-                    action_type: "auto".to_string(),
-                    auto_applicable: true,
-                },
-            ],
-            ai_confidence: 0.88,
-            estimated_time_saved: Some("Save 20 seconds on every boot".to_string()),
-            estimated_space_saved: None,
-            learn_more_url: Some("https://example.com/boot-optimization".to_string()),
-            created_at: timestamp,
-        });
+        // Boot time optimization suggestion - only if boot time exceeds threshold
+        if let Some(boot_ms) = boot_time_ms {
+            let boot_secs = boot_ms / 1000;
+            // Only suggest boot optimization if system takes longer than 30 seconds to boot
+            if boot_secs > 30 {
+                // Estimate potential improvement: reduce boot time by 20-40% is reasonable
+                let potential_improvement_secs = (boot_secs as f64 * 0.25).max(5.0) as u64;
+                let optimal_boot_secs = boot_secs.saturating_sub(potential_improvement_secs);
+
+                suggestions.push(SmartSuggestion {
+                    id: "boot_opt_1".to_string(),
+                    title: "Optimize Boot Speed".to_string(),
+                    description: format!(
+                        "Your system takes {} seconds to boot. Disabling unnecessary startup programs could reduce this to approximately {} seconds.",
+                        boot_secs, optimal_boot_secs
+                    ),
+                    category: "boot".to_string(),
+                    priority: "medium".to_string(),
+                    impact: "medium".to_string(),
+                    reasoning: "Analysis of your system shows that several startup programs could be disabled or delayed without affecting functionality. This would significantly improve boot performance.".to_string(),
+                    actions: vec![
+                        SuggestionAction {
+                            id: "boot_action_1".to_string(),
+                            label: "Analyze boot programs".to_string(),
+                            action_type: "analyze".to_string(),
+                            auto_applicable: false,
+                        },
+                        SuggestionAction {
+                            id: "boot_action_2".to_string(),
+                            label: "Apply safe optimizations".to_string(),
+                            action_type: "auto".to_string(),
+                            auto_applicable: true,
+                        },
+                    ],
+                    ai_confidence: 0.85,
+                    estimated_time_saved: Some(format!("Save {} seconds on every boot", potential_improvement_secs)),
+                    estimated_space_saved: None,
+                    learn_more_url: Some("https://example.com/boot-optimization".to_string()),
+                    created_at: timestamp,
+                });
+            }
+        }
 
         // Maintenance suggestion
         suggestions.push(SmartSuggestion {

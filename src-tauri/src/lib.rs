@@ -383,10 +383,23 @@ fn get_ai_recommendations(
     let ai_engine = state.ai_engine.lock()
         .map_err(|e| format!("Failed to lock AI engine: {}", e))?;
 
+    // Get system uptime to use as boot time metric for suggestions
+    let uptime_ms = {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        use sysinfo::System;
+        let boot_timestamp = System::boot_time();
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        now_secs.saturating_sub(boot_timestamp) * 1000
+    };
+
     let suggestions = ai_engine.generate_suggestions(
         metrics.cpu.usage_percent as f64,
         metrics.memory.usage_percent as f64,
         metrics.disk.usage_percent as f64,
+        Some(uptime_ms),
     );
 
     Ok(suggestions)
