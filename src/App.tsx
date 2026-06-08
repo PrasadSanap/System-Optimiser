@@ -39,7 +39,7 @@ function App() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
+      setError(typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Failed to fetch metrics'));
       setIsLoading(false);
     }
   };

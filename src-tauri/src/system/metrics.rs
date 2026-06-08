@@ -100,7 +100,10 @@ impl MetricsCollector {
 
     fn get_cpu_metrics(&self) -> CpuMetrics {
         let global_cpu = self.system.global_cpu_info();
-        let cpu_usage = global_cpu.cpu_usage();
+        let mut cpu_usage = global_cpu.cpu_usage();
+        if cpu_usage.is_nan() {
+            cpu_usage = 0.0;
+        }
         let cores = self.system.cpus().len();
         let frequency = global_cpu.frequency();
 
@@ -207,7 +210,11 @@ impl MetricsCollector {
                 ProcessInfo {
                     pid: pid.as_u32(),
                     name: process.name().to_string(),
-                    cpu_percent: process.cpu_usage(),
+                    cpu_percent: {
+                        let mut cpu = process.cpu_usage();
+                        if cpu.is_nan() { cpu = 0.0; }
+                        cpu
+                    },
                     memory_bytes: process.memory(),
                     disk_read_bytes: disk_usage.read_bytes,
                     disk_write_bytes: disk_usage.written_bytes,
