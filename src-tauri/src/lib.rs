@@ -1,4 +1,4 @@
-mod system;
+pub mod system;
 
 use std::sync::Mutex;
 use system::{MetricsCollector, BootOptimizer, AISuggestionsEngine};
@@ -12,6 +12,7 @@ struct AppState {
     ai_engine: Mutex<AISuggestionsEngine>,
     focus_mode_manager: Mutex<system::FocusModeManager>,
     maintenance_scheduler: Mutex<system::MaintenanceScheduler>,
+    battery_manager: Mutex<system::BatteryManager>,
     // Throttles system-modifying commands so rapid repeated calls cannot
     // exhaust resources or drive the system into an unstable state.
     rate_limiter: Mutex<system::RateLimiter>,
@@ -673,6 +674,30 @@ fn get_maintenance_logs(state: State<AppState>) -> Result<Vec<system::Maintenanc
     Ok(scheduler.get_logs())
 }
 
+// Battery Commands
+#[tauri::command]
+fn get_battery_status(state: State<AppState>) -> Result<system::BatteryStatus, String> {
+    let manager = state.battery_manager.lock()
+        .map_err(|e| format!("Failed to lock battery manager: {}", e))?;
+    manager.get_status()
+}
+
+#[tauri::command]
+fn set_charge_limit(state: State<AppState>, enable: bool) -> Result<String, String> {
+    let manager = state.battery_manager.lock()
+        .map_err(|e| format!("Failed to lock battery manager: {}", e))?;
+    manager.set_charge_limit(enable)?;
+    Ok("Charge limit updated successfully".to_string())
+}
+
+#[tauri::command]
+fn toggle_smart_override(state: State<AppState>, override_active: bool) -> Result<String, String> {
+    let manager = state.battery_manager.lock()
+        .map_err(|e| format!("Failed to lock battery manager: {}", e))?;
+    manager.toggle_smart_override(override_active)?;
+    Ok("Smart override updated successfully".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -683,6 +708,7 @@ pub fn run() {
             ai_engine: Mutex::new(AISuggestionsEngine::new()),
             focus_mode_manager: Mutex::new(system::FocusModeManager::new()),
             maintenance_scheduler: Mutex::new(system::MaintenanceScheduler::new()),
+            battery_manager: Mutex::new(system::BatteryManager::new()),
             rate_limiter: Mutex::new(system::RateLimiter::new()),
         })
         .setup(|app| {
@@ -750,6 +776,9 @@ pub fn run() {
             get_maintenance_config,
             update_maintenance_config,
             get_maintenance_logs,
+            get_battery_status,
+            set_charge_limit,
+            toggle_smart_override,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

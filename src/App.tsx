@@ -5,6 +5,7 @@ import { formatBytes, formatPercent } from './utils/format';
 import { AISuggestions } from './components/AISuggestions';
 import { FocusModeSettingsModal } from './components/FocusModeSettingsModal';
 import { MaintenanceSettingsModal } from './components/MaintenanceSettingsModal';
+import { BatterySettings } from './components/BatterySettings';
 
 function App() {
   const { 
@@ -14,7 +15,7 @@ function App() {
   } = useAppStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'ai'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'battery'>('dashboard');
   const [isFocusModeSettingsOpen, setIsFocusModeSettingsOpen] = useState(false);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
 
@@ -167,6 +168,16 @@ function App() {
               >
                 🤖 AI Assistant
               </button>
+              <button
+                onClick={() => setCurrentView('battery')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'battery'
+                    ? 'bg-primary text-white'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                🔋 Battery Saver
+              </button>
             </nav>
             <button
               onClick={toggleDarkMode}
@@ -181,7 +192,7 @@ function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        {currentView === 'dashboard' ? (
+        {currentView === 'dashboard' && (
           <>
             <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between">
               <div>
@@ -262,10 +273,11 @@ function App() {
                 status="Coming Soon"
               />
               <FeatureCard
-                title="Process Manager"
-                description="Manage running processes and services"
-                icon="⚙️"
-                status="Coming Soon"
+                title="Battery Saver"
+                description="Limit charge to 80% and extend cell lifespan"
+                icon="🔋"
+                status="Active"
+                onClick={() => setCurrentView('battery')}
               />
               <FeatureCard
                 title="Automated Maintenance"
@@ -276,9 +288,9 @@ function App() {
               />
             </div>
           </>
-        ) : (
-          <AISuggestions />
         )}
+        {currentView === 'ai' && <AISuggestions />}
+        {currentView === 'battery' && <BatterySettings />}
       </main>
 
       {/* Footer */}

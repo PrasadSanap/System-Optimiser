@@ -380,6 +380,17 @@ export interface MaintenanceLog {
   details: string;
 }
 
+export interface BatteryStatus {
+  is_supported: boolean;
+  charge_limit_enabled: boolean;
+  charge_limit_percent: number;
+  current_charge_percent: number;
+  design_capacity_mah: number;
+  current_max_capacity_mah: number;
+  wear_level_percent: number;
+  smart_override_active: boolean;
+}
+
 export interface FocusModeStatus {
   is_enabled: boolean;
   paused_processes_count: number;

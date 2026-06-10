@@ -28,6 +28,7 @@ import type {
   NotificationEvent,
   FocusModeSettings,
   FocusModeStatus,
+  BatteryStatus,
 } from '../types';
 
 /**
@@ -281,6 +282,21 @@ export const events = {
 };
 
 /**
+ * Battery API
+ */
+export const batteryApi = {
+  async getStatus(): Promise<BatteryStatus> {
+    return invoke<BatteryStatus>('get_battery_status');
+  },
+  async setChargeLimit(enable: boolean): Promise<string> {
+    return invoke<string>('set_charge_limit', { enable });
+  },
+  async toggleSmartOverride(overrideActive: boolean): Promise<string> {
+    return invoke<string>('toggle_smart_override', { overrideActive });
+  },
+};
+
+/**
  * Combined API export
  */
 export const tauriApi = {
@@ -290,6 +306,7 @@ export const tauriApi = {
   ai: aiApi,
   settings: settingsApi,
   performance: performanceApi,
+  battery: batteryApi,
   events,
 };
 

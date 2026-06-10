@@ -8,7 +8,7 @@
 //   4. Catches and re-throws errors as clean, readable messages
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/core";
 import { validatePath, normalizePath } from "../utils/pathValidator";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
