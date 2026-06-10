@@ -337,8 +337,57 @@ export interface NotificationEvent {
   };
 }
 
+// Hardware Health Types
+export interface DiskHealthInfo {
+  device: string;
+  model: string;
+  serial: string;
+  disk_type: 'SSD' | 'HDD' | 'NVMe' | 'Unknown';
+  health_score: number;
+  temperature_celsius: number | null;
+  power_on_hours: number;
+  total_bytes_written: number;
+  rated_tbw: number | null;
+  reallocated_sectors: number;
+  read_error_rate: number;
+  write_error_rate: number;
+  predicted_remaining_days: number | null;
+  smart_status: 'passed' | 'failed' | 'unknown';
+  available: boolean;
+  requires_admin: boolean;
+}
+
+export interface BatteryHealthInfo {
+  design_capacity_mah: number;
+  current_max_capacity_mah: number;
+  health_percent: number;
+  cycle_count: number;
+  rated_cycle_count: number;
+  temperature_celsius: number | null;
+  is_charging: boolean;
+  predicted_replacement_days: number | null;
+  available: boolean;
+}
+
+export interface HealthAlert {
+  component: string;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  timestamp: number;
+}
+
+export interface HardwareHealthData {
+  disks: DiskHealthInfo[];
+  battery: BatteryHealthInfo | null;
+  alerts: HealthAlert[];
+  last_updated: number;
+  smartctl_available: boolean;
+  is_laptop: boolean;
+}
+
 // UI State Types
 export type ViewType = 'dashboard' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'deep_sleep';
+export type ViewType = 'dashboard' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'hardware_health';
 
 export interface AppState {
   currentView: ViewType;

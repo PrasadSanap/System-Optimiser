@@ -176,12 +176,32 @@ impl MaintenanceScheduler {
     }
 }
 
-// Basic macOS idle detection using ioreg
+// Platform-specific idle time detection
 pub fn get_idle_time_seconds() -> u64 {
+    #[cfg(target_os = "macos")]
+    {
+        get_idle_time_macos()
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        get_idle_time_windows()
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Linux and other platforms: not currently supported
+        0
+    }
+}
+
+/// macOS idle detection using ioreg command
+#[cfg(target_os = "macos")]
+fn get_idle_time_macos() -> u64 {
     let output = Command::new("ioreg")
         .args(&["-c", "IOHIDSystem"])
         .output();
-    
+
     if let Ok(out) = output {
         let stdout = String::from_utf8_lossy(&out.stdout);
         for line in stdout.lines() {
@@ -192,6 +212,31 @@ pub fn get_idle_time_seconds() -> u64 {
                     }
                 }
             }
+        }
+    }
+    0
+}
+
+/// Windows idle detection using GetLastInputInfo Win32 API
+#[cfg(target_os = "windows")]
+fn get_idle_time_windows() -> u64 {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+    use windows::Win32::System::SystemInformation::GetTickCount64;
+
+    let mut last_input_info = LASTINPUTINFO {
+        cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32,
+        dwTime: 0,
+    };
+
+    // Get the last input time tick
+    if unsafe { GetLastInputInfo(&mut last_input_info) }.as_bool() {
+        // GetTickCount64 returns milliseconds since system boot
+        let current_tick = unsafe { GetTickCount64() };
+        let last_input_tick = last_input_info.dwTime as u64;
+
+        if current_tick >= last_input_tick {
+            let idle_ms = current_tick - last_input_tick;
+            return idle_ms / 1000; // Convert to seconds
         }
     }
     0
