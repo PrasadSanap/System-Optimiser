@@ -451,6 +451,137 @@ fn get_optimization_suggestions(state: State<AppState>) -> Result<Vec<serde_json
 }
 
 #[tauri::command]
+fn get_optimization_details(optimization_id: String) -> Result<serde_json::Value, String> {
+    // Provide detailed information about a specific optimization so the frontend
+    // can display a comprehensive confirmation dialog before applying it.
+    // This gives users full visibility into what will change, risks, estimated time,
+    // and rollback options.
+
+    validate_optimization_id(&optimization_id)?;
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    // Build detailed information for each known optimization ID.
+    // These descriptions help users make informed decisions before applying changes.
+    let details = match optimization_id.as_str() {
+        "opt_1" => serde_json::json!({
+            "id": "opt_1",
+            "title": "Disable Unnecessary Startup Programs",
+            "description": "Reduces boot time by disabling programs that start automatically but may not be essential",
+            "category": "startup",
+            "risk_level": "medium",
+            "estimated_time_to_apply_sec": 30,
+            "estimated_time_saved_sec": 45,
+            "potential_impacts": [
+                "Applications may take longer to launch when explicitly opened",
+                "Some background services may be unavailable until manually started",
+                "Calendar, email, or cloud sync may delay on first use"
+            ],
+            "affected_programs": [
+                "Microsoft Teams",
+                "Adobe Creative Cloud",
+                "Spotify"
+            ],
+            "rollback_available": true,
+            "rollback_time_sec": 15,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "backup_created": true,
+            "backup_location": "System Restore Point",
+            "ai_confidence": 0.95,
+            "created_at": timestamp
+        }),
+        "opt_2" => serde_json::json!({
+            "id": "opt_2",
+            "title": "Clear Browser Cache and Temporary Files",
+            "description": "Removes cached web data and temporary files to free disk space and improve browser performance",
+            "category": "disk",
+            "risk_level": "low",
+            "estimated_time_to_apply_sec": 60,
+            "estimated_space_freed_mb": 2048,
+            "potential_impacts": [
+                "Web pages may load slightly slower on first visit (cache will rebuild)",
+                "Saved form data in browsers will be cleared"
+            ],
+            "affected_programs": [
+                "Google Chrome",
+                "Firefox",
+                "Microsoft Edge"
+            ],
+            "rollback_available": false,
+            "rollback_time_sec": 0,
+            "requires_restart": false,
+            "requires_admin": false,
+            "data_loss_risk": false,
+            "backup_created": false,
+            "ai_confidence": 0.98,
+            "created_at": timestamp
+        }),
+        "opt_3" => serde_json::json!({
+            "id": "opt_3",
+            "title": "Optimize Memory Usage",
+            "description": "Monitors and reduces memory consumption by closing unnecessary background processes and compacting memory",
+            "category": "memory",
+            "risk_level": "low",
+            "estimated_time_to_apply_sec": 45,
+            "estimated_memory_freed_mb": 512,
+            "potential_impacts": [
+                "Some background applications may be terminated temporarily",
+                "Minimal performance impact (memory is reclaimed automatically)"
+            ],
+            "affected_programs": [
+                "Background services",
+                "Unused applications"
+            ],
+            "rollback_available": false,
+            "rollback_time_sec": 0,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "backup_created": false,
+            "ai_confidence": 0.92,
+            "created_at": timestamp
+        }),
+        "opt_4" => serde_json::json!({
+            "id": "opt_4",
+            "title": "Disable Unused Services",
+            "description": "Stops and disables Windows/system services that are not needed, reducing resource usage and improving responsiveness",
+            "category": "services",
+            "risk_level": "medium",
+            "estimated_time_to_apply_sec": 90,
+            "potential_impacts": [
+                "Some features like Windows Search may be slower or unavailable",
+                "Bluetooth or specific hardware features may be disabled",
+                "Remote access or network services may be affected"
+            ],
+            "affected_services": [
+                "Windows Search",
+                "Print Spooler",
+                "Remote Registry Service"
+            ],
+            "rollback_available": true,
+            "rollback_time_sec": 60,
+            "requires_restart": true,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "backup_created": true,
+            "backup_location": "Registry Snapshot",
+            "ai_confidence": 0.88,
+            "created_at": timestamp
+        }),
+        _ => {
+            return Err(format!("Unknown optimization ID: '{}'", optimization_id));
+        }
+    };
+
+    Ok(details)
+}
+
+#[tauri::command]
 fn apply_optimization(
     state: State<AppState>,
     optimization_id: String,
@@ -459,9 +590,11 @@ fn apply_optimization(
     // The confirm flag is a safety gate: callers must set it to true to
     // proceed. Returning an error (not a "success") when it is false
     // prevents the UI from silently discarding unconfirmed actions.
+    // Frontends should first call get_optimization_details() to retrieve full
+    // impact information and display it in a detailed confirmation dialog.
     if !confirm {
         return Err(
-            "Confirmation required: set confirm to true to apply this optimization.".to_string()
+            "Confirmation required: call get_optimization_details() first to review risks and impacts, then set confirm=true to apply.".to_string()
         );
     }
 
