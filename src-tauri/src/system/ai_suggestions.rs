@@ -246,7 +246,7 @@ impl AISuggestionsEngine {
                 insight_type: "success".to_string(),
                 message: "✅ System performing well".to_string(),
                 details: Some(format!(
-                    "Your system is running smoothly. CPU at {:.1}%, Memory at {:.1}%. No immediate optimization needed.",
+                    "Your system is running smoothly. CPU at {:.1}%, Memory at {:.1}%. System resources are healthy and operating efficiently. Continue monitoring and maintaining regular system upkeep.",
                     cpu_usage, memory_usage
                 )),
                 action: None,
@@ -255,13 +255,13 @@ impl AISuggestionsEngine {
         } else if cpu_usage > 70.0 || memory_usage > 70.0 {
             insights.push(AIInsight {
                 insight_type: "info".to_string(),
-                message: "📊 Moderate resource usage detected".to_string(),
+                message: "📊 Moderate to high resource usage detected".to_string(),
                 details: Some(format!(
-                    "Current CPU at {:.1}% and Memory at {:.1}%. Consider checking running processes to identify resource-heavy applications.",
+                    "CPU is at {:.1}% and Memory is at {:.1}%. Multiple applications are running. Consider checking running processes to identify resource-heavy applications. Closing unused programs or tabs may improve system responsiveness.",
                     cpu_usage, memory_usage
                 )),
                 action: Some(InsightAction {
-                    label: "View running processes".to_string(),
+                    label: "View active processes".to_string(),
                     command: "view_processes".to_string(),
                 }),
                 confidence: 1.0,
@@ -272,30 +272,30 @@ impl AISuggestionsEngine {
         if memory_usage > 85.0 {
             insights.push(AIInsight {
                 insight_type: "warning".to_string(),
-                message: "⚠️ Memory usage critically high".to_string(),
+                message: "⚠️ Alert: Memory usage is critically high".to_string(),
                 details: Some(format!(
-                    "Memory usage is at {:.1}%. This can cause system slowdowns. Consider closing applications or clearing memory to improve performance.",
+                    "System memory usage is at {:.1}%. High memory usage can cause system slowdowns and performance degradation. Immediate action recommended to free up memory and restore system responsiveness.",
                     memory_usage
                 )),
                 action: Some(InsightAction {
-                    label: "View memory usage".to_string(),
+                    label: "View memory usage details".to_string(),
                     command: "view_processes".to_string(),
                 }),
                 confidence: 1.0,
             });
         }
 
-        // Elevated resource usage warning
+        // Combined resource usage insight
         if cpu_usage > 50.0 && memory_usage > 60.0 {
             insights.push(AIInsight {
                 insight_type: "tip".to_string(),
-                message: "💡 High resource usage detected".to_string(),
+                message: "💡 Suggestion: Consider resource optimization".to_string(),
                 details: Some(format!(
-                    "Your system is using significant resources. CPU: {:.1}%, Memory: {:.1}%. Monitor running processes to optimize performance.",
+                    "Your system is running multiple resource-intensive processes simultaneously. CPU: {:.1}%, Memory: {:.1}%. Monitor running processes and consider closing unused applications to improve system responsiveness and prevent performance degradation.",
                     cpu_usage, memory_usage
                 )),
                 action: Some(InsightAction {
-                    label: "Check running processes".to_string(),
+                    label: "View active processes".to_string(),
                     command: "view_processes".to_string(),
                 }),
                 confidence: 1.0,
@@ -305,9 +305,9 @@ impl AISuggestionsEngine {
         // Maintenance recommendation
         insights.push(AIInsight {
             insight_type: "tip".to_string(),
-            message: "🔧 Regular maintenance recommended".to_string(),
+            message: "🔧 Maintenance Tip: Regular system upkeep".to_string(),
             details: Some(format!(
-                "Periodic system maintenance and restarts help maintain stable performance. Schedule maintenance during low-usage periods. Current system metrics: CPU {:.1}%, Memory {:.1}%, Disk {:.1}%.",
+                "Regular system maintenance and periodic restarts help maintain performance over time. Consider scheduling maintenance during low-usage periods for minimal disruption. Current system metrics: CPU {:.1}%, Memory {:.1}%, Disk {:.1}%.",
                 cpu_usage, memory_usage, disk_usage
             )),
             action: None,
@@ -318,13 +318,13 @@ impl AISuggestionsEngine {
         if disk_usage > 90.0 {
             insights.push(AIInsight {
                 insight_type: "warning".to_string(),
-                message: "🚨 Disk space critical".to_string(),
+                message: "🚨 Alert: Disk space is critically low".to_string(),
                 details: Some(format!(
-                    "Disk usage is at {:.1}%. Free up space by removing temporary files, old downloads, and duplicates to maintain system stability.",
+                    "Disk usage is at {:.1}%. Critical disk space can cause system instability and prevent important updates. Clean up temporary files, old downloads, and duplicate files to free up space immediately.",
                     disk_usage
                 )),
                 action: Some(InsightAction {
-                    label: "Clean disk".to_string(),
+                    label: "View cleanup suggestions".to_string(),
                     command: "clean_disk".to_string(),
                 }),
                 confidence: 1.0,
@@ -332,9 +332,9 @@ impl AISuggestionsEngine {
         } else if disk_usage > 75.0 {
             insights.push(AIInsight {
                 insight_type: "info".to_string(),
-                message: "📊 Disk space trending toward full".to_string(),
+                message: "📊 Reminder: Disk space is getting full".to_string(),
                 details: Some(format!(
-                    "Disk usage is at {:.1}%. Consider cleaning up files to maintain performance and ensure adequate space for system operations.",
+                    "Disk usage is at {:.1}%. Proactive cleanup is recommended before disk space becomes critically low. Consider removing old downloads, temporary files, and duplicate files.",
                     disk_usage
                 )),
                 action: Some(InsightAction {
@@ -345,13 +345,13 @@ impl AISuggestionsEngine {
             });
         }
 
-        // System status summary
+        // System health summary
         if insights.len() < 3 {
             insights.push(AIInsight {
                 insight_type: "success".to_string(),
-                message: "✨ System status healthy".to_string(),
+                message: "✅ System Status: Performance is healthy".to_string(),
                 details: Some(
-                    "Your system is operating normally with no critical issues detected. Regular maintenance and monitoring help maintain optimal performance."
+                    "Your system is operating normally with current resource usage at healthy levels. Monitoring shows CPU and memory are within normal operating ranges. Regular maintenance and monitoring help maintain optimal performance."
                         .to_string(),
                 ),
                 action: None,
