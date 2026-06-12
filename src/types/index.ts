@@ -386,6 +386,7 @@ export interface HardwareHealthData {
 }
 
 // UI State Types
+export type ViewType = 'dashboard' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'deep_sleep';
 export type ViewType = 'dashboard' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'hardware_health';
 
 export interface AppState {
@@ -431,6 +432,21 @@ export interface MaintenanceLog {
 export interface FocusModeStatus {
   is_enabled: boolean;
   paused_processes_count: number;
+}
+
+// Deep Sleep Types
+export interface SuspendedProcess {
+  pid: number;
+  name: string;
+  memory_bytes: number;
+  suspended_at: number;
+}
+
+export interface DeepSleepStatus {
+  enabled: boolean;
+  inactivity_timeout_secs: number;
+  whitelist: string[];
+  suspended_processes: SuspendedProcess[];
 }
 
 // Made with Bob

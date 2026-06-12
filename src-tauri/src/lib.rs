@@ -2,7 +2,7 @@ mod system;
 
 use std::sync::Mutex;
 use system::{MetricsCollector, BootOptimizer, AISuggestionsEngine};
-use tauri::State;
+use tauri::{State, Manager};
 use chrono::Timelike;
 
 // Global state for metrics collector and AI engines
@@ -12,6 +12,7 @@ struct AppState {
     ai_engine: Mutex<AISuggestionsEngine>,
     focus_mode_manager: Mutex<system::FocusModeManager>,
     maintenance_scheduler: Mutex<system::MaintenanceScheduler>,
+    deep_sleep: Mutex<system::DeepSleepManager>,
     hardware_health: Mutex<system::HardwareHealthCollector>,
     // Throttles system-modifying commands so rapid repeated calls cannot
     // exhaust resources or drive the system into an unstable state.
@@ -1251,6 +1252,45 @@ fn get_maintenance_logs(state: State<AppState>) -> Result<Vec<system::Maintenanc
     Ok(scheduler.get_logs())
 }
 
+#[tauri::command]
+fn get_deep_sleep_status(state: State<AppState>) -> Result<system::DeepSleepStatus, String> {
+    let ds = state.deep_sleep.lock()
+        .map_err(|e| format!("Failed to lock deep sleep manager: {}", e))?;
+    Ok(ds.get_status())
+}
+
+#[tauri::command]
+fn update_deep_sleep_config(
+    state: State<AppState>,
+    enabled: bool,
+    timeout_secs: u64,
+    whitelist: Vec<String>,
+) -> Result<system::DeepSleepStatus, String> {
+    let mut ds = state.deep_sleep.lock()
+        .map_err(|e| format!("Failed to lock deep sleep manager: {}", e))?;
+    ds.update_config(enabled, timeout_secs, whitelist)?;
+    Ok(ds.get_status())
+}
+
+#[tauri::command]
+fn thaw_process(state: State<AppState>, pid: u32) -> Result<system::DeepSleepStatus, String> {
+    let mut ds = state.deep_sleep.lock()
+        .map_err(|e| format!("Failed to lock deep sleep manager: {}", e))?;
+    ds.thaw_process(pid)?;
+    Ok(ds.get_status())
+}
+
+#[tauri::command]
+fn freeze_process(
+    state: State<AppState>,
+    pid: u32,
+    name: String,
+    memory_bytes: u64,
+) -> Result<system::DeepSleepStatus, String> {
+    let mut ds = state.deep_sleep.lock()
+        .map_err(|e| format!("Failed to lock deep sleep manager: {}", e))?;
+    ds.freeze_process(pid, name, memory_bytes)?;
+    Ok(ds.get_status())
 // Hardware Health Commands
 #[tauri::command]
 fn get_hardware_health(state: State<AppState>) -> Result<system::HardwareHealthData, String> {
@@ -1275,7 +1315,7 @@ fn get_battery_health(state: State<AppState>) -> Result<Option<system::BatteryHe
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             metrics_collector: Mutex::new(MetricsCollector::new()),
@@ -1283,12 +1323,21 @@ pub fn run() {
             ai_engine: Mutex::new(AISuggestionsEngine::new()),
             focus_mode_manager: Mutex::new(system::FocusModeManager::new()),
             maintenance_scheduler: Mutex::new(system::MaintenanceScheduler::new()),
+            deep_sleep: Mutex::new(system::DeepSleepManager::new(None)),
             hardware_health: Mutex::new(system::HardwareHealthCollector::new()),
             rate_limiter: Mutex::new(system::RateLimiter::new()),
         })
         .setup(|app| {
-            let handle = app.handle().clone();
             use tauri::Manager;
+
+            // Set the config directory for Deep Sleep
+            if let Ok(config_dir) = app.path().app_config_dir() {
+                if let Ok(mut ds) = app.state::<AppState>().deep_sleep.lock() {
+                    ds.set_config_path(config_dir);
+                }
+            }
+
+            let handle = app.handle().clone();
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(60));
@@ -1319,6 +1368,20 @@ pub fn run() {
                     }
                 }
             });
+
+            // Spawn deep sleep background tick loop
+            let ds_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    if let Some(state) = ds_handle.try_state::<AppState>() {
+                        if let Ok(mut ds) = state.deep_sleep.lock() {
+                            ds.tick();
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1351,17 +1414,41 @@ pub fn run() {
             get_maintenance_config,
             update_maintenance_config,
             get_maintenance_logs,
+            get_deep_sleep_status,
+            update_deep_sleep_config,
+            thaw_process,
+            freeze_process,
             get_hardware_health,
             get_disk_health,
             get_battery_health,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            if let Some(state) = app_handle.try_state::<AppState>() {
+                if let Ok(mut ds) = state.deep_sleep.lock() {
+                    let _ = ds.unfreeze_all();
+                }
+            }
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::validate_optimization_id;
+
+    #[test]
+    fn debug_metrics() {
+        println!("DEBUG METRICS START");
+        let mut collector = super::system::MetricsCollector::new();
+        let metrics = collector.get_metrics();
+        println!("DEBUG METRICS CPU: {:?}", metrics.cpu);
+        println!("DEBUG METRICS MEM: {:?}", metrics.memory);
+        println!("DEBUG METRICS DISK: {:?}", metrics.disk);
+    }
 
     #[test]
     fn accepts_known_ids() {

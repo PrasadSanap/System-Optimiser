@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from './store';
 import tauriApi from './services/tauri';
-import { formatBytes, formatPercent } from './utils/format';
+import { formatBytes } from './utils/format';
 import { AISuggestions } from './components/AISuggestions';
 import { HardwareHealth } from './components/HardwareHealth';
 import { FocusModeSettingsModal } from './components/FocusModeSettingsModal';
 import { MaintenanceSettingsModal } from './components/MaintenanceSettingsModal';
+import DeepSleep from './components/DeepSleep';
 
 function App() {
   const { 
@@ -15,6 +16,7 @@ function App() {
   } = useAppStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'deep_sleep' | 'boot' | 'optimizations' | 'performance' | 'settings'>('dashboard');
   const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'hardware_health'>('dashboard');
   const [isFocusModeSettingsOpen, setIsFocusModeSettingsOpen] = useState(false);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
@@ -39,7 +41,7 @@ function App() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
+      setError(typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Failed to fetch metrics'));
       setIsLoading(false);
     }
   };
@@ -169,6 +171,9 @@ function App() {
                 🤖 AI Assistant
               </button>
               <button
+                onClick={() => setCurrentView('deep_sleep')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'deep_sleep'
                 onClick={() => setCurrentView('hardware_health')}
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   currentView === 'hardware_health'
@@ -176,6 +181,7 @@ function App() {
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
+                ❄️ Deep Sleep
                 🏥 Hardware Health
               </button>
             </nav>
@@ -192,7 +198,7 @@ function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        {currentView === 'dashboard' ? (
+        {currentView === 'dashboard' && (
           <>
             <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between">
               <div>
@@ -226,57 +232,52 @@ function App() {
             </div>
 
             {systemMetrics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* CPU Card */}
-            <MetricCard
-              title="CPU Usage"
-              value={formatPercent(systemMetrics.cpu.usage_percent)}
-              subtitle={`${systemMetrics.cpu.cores} cores @ ${(systemMetrics.cpu.frequency_mhz / 1000).toFixed(2)} GHz`}
-              percentage={systemMetrics.cpu.usage_percent}
-              icon="🖥️"
-            />
-
-            {/* Memory Card */}
-            <MetricCard
-              title="Memory"
-              value={formatPercent(systemMetrics.memory.usage_percent)}
-              subtitle={`${formatBytes(systemMetrics.memory.used_bytes)} / ${formatBytes(systemMetrics.memory.total_bytes)}`}
-              percentage={systemMetrics.memory.usage_percent}
-              icon="💾"
-            />
-
-            {/* Disk Card */}
-            <MetricCard
-              title="Disk Space"
-              value={formatPercent(systemMetrics.disk.usage_percent)}
-              subtitle={`${formatBytes(systemMetrics.disk.used_bytes)} / ${formatBytes(systemMetrics.disk.total_bytes)}`}
-              percentage={systemMetrics.disk.usage_percent}
-              icon="💿"
-            />
-
-            {/* Network Card */}
-            <MetricCard
-              title="Network"
-              value={formatBytes(systemMetrics.network.bytes_sent + systemMetrics.network.bytes_received)}
-              subtitle={`↑ ${formatBytes(systemMetrics.network.bytes_sent)} ↓ ${formatBytes(systemMetrics.network.bytes_received)}`}
-              icon="🌐"
-            />
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <MetricCard
+                  title="CPU Usage"
+                  value={`${systemMetrics.cpu.usage_percent.toFixed(1)}%`}
+                  subtitle={`${systemMetrics.cpu.cores} Cores @ ${systemMetrics.cpu.frequency_mhz} MHz`}
+                  percentage={systemMetrics.cpu.usage_percent}
+                  icon="💻"
+                />
+                <MetricCard
+                  title="Memory"
+                  value={formatBytes(systemMetrics.memory.used_bytes)}
+                  subtitle={`of ${formatBytes(systemMetrics.memory.total_bytes)} (${systemMetrics.memory.usage_percent.toFixed(1)}%)`}
+                  percentage={systemMetrics.memory.usage_percent}
+                  icon="🧠"
+                />
+                <MetricCard
+                  title="Disk Usage"
+                  value={`${systemMetrics.disk.usage_percent.toFixed(1)}%`}
+                  subtitle={`${formatBytes(systemMetrics.disk.used_bytes)} used of ${formatBytes(systemMetrics.disk.total_bytes)}`}
+                  percentage={systemMetrics.disk.usage_percent}
+                  icon="💾"
+                />
+                <MetricCard
+                  title="Network"
+                  value={formatBytes(systemMetrics.network.bytes_sent + systemMetrics.network.bytes_received)}
+                  subtitle={`Sent: ${formatBytes(systemMetrics.network.bytes_sent)} | Recv: ${formatBytes(systemMetrics.network.bytes_received)}`}
+                  icon="🌐"
+                />
+              </div>
             )}
 
-            {/* Coming Soon Section */}
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Features Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
               <FeatureCard
-                title="Performance History"
-                description="Track your system's performance over time"
-                icon="📊"
-                status="Coming Soon"
+                title="Startup Optimizer"
+                description="Manage startup programs & speed up boot time"
+                icon="🚀"
+                status="Active"
+                onClick={() => setCurrentView('boot')}
               />
               <FeatureCard
-                title="Process Manager"
-                description="Manage running processes and services"
-                icon="⚙️"
-                status="Coming Soon"
+                title="AI Recommendation Engine"
+                description="Get smart optimization suggestions"
+                icon="🧠"
+                status="Active"
+                onClick={() => setCurrentView('ai')}
               />
               <FeatureCard
                 title="Automated Maintenance"
@@ -292,6 +293,8 @@ function App() {
         ) : (
           <AISuggestions />
         )}
+        {currentView === 'ai' && <AISuggestions />}
+        {currentView === 'deep_sleep' && <DeepSleep />}
       </main>
 
       {/* Footer */}

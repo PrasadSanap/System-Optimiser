@@ -28,6 +28,7 @@ import type {
   NotificationEvent,
   FocusModeSettings,
   FocusModeStatus,
+  DeepSleepStatus,
   HardwareHealthData,
   DiskHealthInfo,
   BatteryHealthInfo,
@@ -283,6 +284,28 @@ export const events = {
   },
 };
 
+
+/**
+ * Deep Sleep App Freezer API
+ */
+export const deepSleepApi = {
+  async getStatus(): Promise<DeepSleepStatus> {
+    return invoke<DeepSleepStatus>('get_deep_sleep_status');
+  },
+
+  async updateConfig(enabled: boolean, timeoutSecs: number, whitelist: string[]): Promise<DeepSleepStatus> {
+    return invoke<DeepSleepStatus>('update_deep_sleep_config', { enabled, timeoutSecs, whitelist });
+  },
+
+  async thawProcess(pid: number): Promise<DeepSleepStatus> {
+    return invoke<DeepSleepStatus>('thaw_process', { pid });
+  },
+
+  async freezeProcess(pid: number, name: string, memoryBytes: number): Promise<DeepSleepStatus> {
+    return invoke<DeepSleepStatus>('freeze_process', { pid, name, memoryBytes });
+  },
+};
+
 /**
  * Hardware Health API
  */
@@ -319,6 +342,7 @@ export const tauriApi = {
   ai: aiApi,
   settings: settingsApi,
   performance: performanceApi,
+  deepSleep: deepSleepApi,
   hardwareHealth: hardwareHealthApi,
   events,
 };
