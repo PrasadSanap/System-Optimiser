@@ -24,8 +24,7 @@ pub struct FocusModeStatus {
 
 pub struct FocusModeManager {
     is_enabled: bool,
-    // Store (Pid, process_name) pairs to prevent resuming wrong process if PID is reused
-    paused_pids: HashSet<(Pid, String)>,
+    paused_pids: HashSet<Pid>,
     settings: FocusModeSettings,
 }
 
@@ -90,8 +89,8 @@ impl FocusModeManager {
                 if is_blacklisted && !is_whitelisted {
                     // Try to pause the process using platform-specific method
                     if pause_process(*pid) {
-                        // Store both PID and process name to verify identity if PID is reused later
-                        self.paused_pids.insert((*pid, name.clone()));
+                        // Store PID of successfully paused process
+                        self.paused_pids.insert(*pid);
                         paused_count += 1;
                     }
                 }
@@ -102,23 +101,32 @@ impl FocusModeManager {
         } else {
             // Disable Focus Mode: Resume all paused processes
             let mut resumed_count = 0;
+            let mut failed_count = 0;
+            let mut stale_pids = Vec::new();
 
-            for (pid, original_name) in &self.paused_pids {
-                if let Some(process) = sys.process(*pid) {
-                    // Verify process identity by checking name to prevent resuming wrong process
-                    // if PID was reused between enable and disable calls
-                    let current_name = process.name().to_string().to_lowercase();
-                    if current_name == *original_name {
-                        if resume_process(*pid) {
-                            resumed_count += 1;
-                        }
+            for pid in &self.paused_pids {
+                if sys.process(*pid).is_some() {
+                    if resume_process(*pid) {
+                        resumed_count += 1;
+                } else {
+                        failed_count += 1;
+                        stale_pids.push(*pid);
                     }
                 }
+                else {
+                        failed_count += 1;
+                        stale_pids.push(*pid);
+                   }
             }
-
             self.paused_pids.clear();
+
             self.is_enabled = false;
-            Ok(format!("Focus mode disabled. Resumed {} background processes.", resumed_count))
+
+            Ok(format!(
+                "Focus mode disabled. Successfully resumed: {} processes. Failed to resume: {} processes.",
+                resumed_count,
+                failed_count
+            ))
         }
     }
 }
