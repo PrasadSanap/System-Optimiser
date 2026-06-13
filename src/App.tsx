@@ -7,6 +7,7 @@ import { HardwareHealth } from './components/HardwareHealth';
 import { FocusModeSettingsModal } from './components/FocusModeSettingsModal';
 import { MaintenanceSettingsModal } from './components/MaintenanceSettingsModal';
 
+
 function App() {
   const { 
     darkMode, toggleDarkMode, systemMetrics, setSystemMetrics, 
@@ -78,6 +79,10 @@ function App() {
       fetchFocusModeState();
     } catch (err) {
       console.error('Failed to toggle focus mode:', err);
+      alert(
+        "Focus Mode is not supported on this operating system. " +
+        "Please check the documentation for alternatives."
+      );
     }
   };
 
@@ -103,9 +108,9 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="bg-background flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="border-primary mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2"></div>
           <p className="text-foreground">Loading system metrics...</p>
         </div>
       </div>
@@ -114,13 +119,13 @@ function App() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center p-8 bg-red-100 dark:bg-red-900/20 rounded-lg">
-          <p className="text-red-600 dark:text-red-400 font-semibold mb-2">Error</p>
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <div className="rounded-lg bg-red-100 p-8 text-center dark:bg-red-900/20">
+          <p className="mb-2 font-semibold text-red-600 dark:text-red-400">Error</p>
           <p className="text-foreground">{error}</p>
           <button
             onClick={fetchMetrics}
-            className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+            className="bg-primary hover:bg-primary-hover mt-4 rounded px-4 py-2 text-white transition-colors"
           >
             Retry
           </button>
@@ -130,13 +135,13 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="bg-background text-foreground min-h-screen">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="border-border bg-card border-b">
+        <div className="container mx-auto flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white text-xl font-bold">SO</span>
+            <div className="bg-primary flex h-10 w-10 items-center justify-center rounded-lg">
+              <span className="text-xl font-bold text-white">SO</span>
             </div>
             <div>
               <h1 className="text-xl font-bold">System Optimizer</h1>
@@ -150,7 +155,7 @@ function App() {
             <nav className="flex space-x-2">
               <button
                 onClick={() => setCurrentView('dashboard')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
+                className={`rounded-lg px-4 py-2 transition-colors ${
                   currentView === 'dashboard'
                     ? 'bg-primary text-white'
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -160,7 +165,7 @@ function App() {
               </button>
               <button
                 onClick={() => setCurrentView('ai')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
+                className={`rounded-lg px-4 py-2 transition-colors ${
                   currentView === 'ai'
                     ? 'bg-primary text-white'
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -170,7 +175,7 @@ function App() {
               </button>
               <button
                 onClick={() => setCurrentView('hardware_health')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
+                className={`rounded-lg px-4 py-2 transition-colors ${
                   currentView === 'hardware_health'
                     ? 'bg-primary text-white'
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -181,7 +186,7 @@ function App() {
             </nav>
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
               aria-label="Toggle dark mode"
             >
               {darkMode ? '🌞' : '🌙'}
@@ -194,20 +199,20 @@ function App() {
       <main className="container mx-auto px-6 py-8">
         {currentView === 'dashboard' ? (
           <>
-            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between">
+            <div className="mb-8 flex flex-col justify-between md:flex-row md:items-center">
               <div>
-                <h2 className="text-2xl font-bold mb-2">System Metrics</h2>
+                <h2 className="mb-2 text-2xl font-bold">System Metrics</h2>
                 <p className="text-gray-600 dark:text-gray-400">
                   Real-time monitoring of your system's performance
                 </p>
               </div>
-              <div className="mt-4 md:mt-0 flex items-center space-x-4">
+              <div className="mt-4 flex items-center space-x-4 md:mt-0">
                 <button
                   onClick={handleToggleFocusMode}
-                  className={`px-6 py-3 rounded-full font-bold shadow-lg transition-all transform hover:scale-105 flex items-center space-x-2 ${
+                  className={`flex transform items-center space-x-2 rounded-full px-6 py-3 font-bold shadow-lg transition-all hover:scale-105 ${
                     focusModeStatus?.is_enabled
-                      ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                      : 'bg-green-500 hover:bg-green-600 text-white'
+                      ? 'animate-pulse bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
                 >
                   <span className="text-xl">🎮</span>
@@ -217,7 +222,7 @@ function App() {
                 </button>
                 <button
                   onClick={() => setIsFocusModeSettingsOpen(true)}
-                  className="p-3 bg-card border border-border rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shadow"
+                  className="bg-card border-border rounded-full border p-3 shadow transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                   title="Focus Mode Settings"
                 >
                   ⚙️
@@ -226,7 +231,7 @@ function App() {
             </div>
 
             {systemMetrics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
             {/* CPU Card */}
             <MetricCard
               title="CPU Usage"
@@ -265,7 +270,7 @@ function App() {
             )}
 
             {/* Coming Soon Section */}
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
               <FeatureCard
                 title="Performance History"
                 description="Track your system's performance over time"
@@ -295,7 +300,7 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border mt-12 py-6">
+      <footer className="border-border mt-12 border-t py-6">
         <div className="container mx-auto px-6 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>System Optimizer v1.0.0 - Built with Tauri + React</p>
         </div>
@@ -338,15 +343,15 @@ function MetricCard({ title, value, subtitle, percentage, icon }: MetricCardProp
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-card border-border rounded-lg border p-6 transition-shadow hover:shadow-lg">
+      <div className="mb-4 flex items-center justify-between">
         <span className="text-3xl">{icon}</span>
         <span className="text-2xl font-bold">{value}</span>
       </div>
-      <h3 className="font-semibold mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{subtitle}</p>
+      <h3 className="mb-1 font-semibold">{title}</h3>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
       {percentage !== undefined && (
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
           <div
             className={`h-2 rounded-full transition-all duration-300 ${getColor(percentage)}`}
             style={{ width: `${Math.min(percentage, 100)}%` }}
@@ -368,14 +373,14 @@ interface FeatureCardProps {
 function FeatureCard({ title, description, icon, status, onClick }: FeatureCardProps) {
   return (
     <div 
-      className={`bg-card border border-border rounded-lg p-6 ${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow hover:border-primary' : 'opacity-60'}`}
+      className={`bg-card border-border rounded-lg border p-6 ${onClick ? 'hover:border-primary cursor-pointer transition-shadow hover:shadow-lg' : 'opacity-60'}`}
       onClick={onClick}
     >
-      <div className="text-4xl mb-4">{icon}</div>
-      <h3 className="font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{description}</p>
+      <div className="mb-4 text-4xl">{icon}</div>
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{description}</p>
       {status && (
-        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-200 dark:bg-gray-700'}`}>
+        <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-200 dark:bg-gray-700'}`}>
           {status}
         </span>
       )}
