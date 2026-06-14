@@ -1,7 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use sysinfo::{Pid, System, Signal};
-use std::time::{SystemTime, UNIX_EPOCH};
+
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Threading::{
+    OpenProcess, SetPriorityClass, GetCurrentProcess, CloseHandle,
+    PROCESS_SET_INFORMATION, BELOW_NORMAL_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS,
+};
+#[cfg(target_os = "windows")]
+use windows::Win32::Foundation::INVALID_HANDLE_VALUE;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FocusModeSettings {
@@ -98,8 +105,9 @@ impl FocusModeManager {
                     .any(|w| name.eq_ignore_ascii_case(w));
 
                 if is_blacklisted && !is_whitelisted {
-                    // Try to send stop signal
-                    if process.kill_with(Signal::Stop).unwrap_or(false) {
+                    // Try to pause the process using platform-specific method
+                    if pause_process(*pid) {
+                        // Store PID of successfully paused process
                         self.paused_pids.insert(*pid);
                         paused_count += 1;
                     }
@@ -116,19 +124,76 @@ impl FocusModeManager {
             let mut resumed_count = 0;
 
             for pid in &self.paused_pids {
-                if let Some(process) = sys.process(*pid) {
-                    if process.kill_with(Signal::Continue).unwrap_or(false) {
+                if sys.process(*pid).is_some() {
+                    if resume_process(*pid) {
                         resumed_count += 1;
+                } else {
+                        failed_count += 1;
+                        stale_pids.push(*pid);
                     }
                 }
+                else {
+                        failed_count += 1;
+                        stale_pids.push(*pid);
+                   }
             }
 
             self.paused_pids.clear();
+
             self.is_enabled = false;
             Ok(format!(
                 "Focus mode disabled. Resumed {} background processes.",
                 resumed_count
             ))
         }
+
+        let result = SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS).is_ok();
+        let _ = CloseHandle(handle);
+        result
+    }
+}
+
+/// Platform-specific process resume implementation
+#[cfg(target_os = "windows")]
+fn resume_process(pid: Pid) -> bool {
+    use windows::Win32::System::Threading::PROCESS_SET_INFORMATION;
+
+    unsafe {
+        // OpenProcess requires PROCESS_SET_INFORMATION access to change priority
+        let handle = OpenProcess(PROCESS_SET_INFORMATION, false, pid.as_u32());
+
+        if handle == INVALID_HANDLE_VALUE {
+            return false;
+        }
+
+        let result = SetPriorityClass(handle, NORMAL_PRIORITY_CLASS).is_ok();
+        let _ = CloseHandle(handle);
+        result
+    }
+}
+
+/// POSIX pause implementation using SIGSTOP
+#[cfg(not(target_os = "windows"))]
+fn pause_process(pid: Pid) -> bool {
+    let mut sys = System::new_all();
+    sys.refresh_processes();
+
+    if let Some(process) = sys.process(pid) {
+        process.kill_with(Signal::Stop).unwrap_or(false)
+    } else {
+        false
+    }
+}
+
+/// POSIX resume implementation using SIGCONT
+#[cfg(not(target_os = "windows"))]
+fn resume_process(pid: Pid) -> bool {
+    let mut sys = System::new_all();
+    sys.refresh_processes();
+
+    if let Some(process) = sys.process(pid) {
+        process.kill_with(Signal::Continue).unwrap_or(false)
+    } else {
+        false
     }
 }

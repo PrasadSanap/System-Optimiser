@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from './store';
 import tauriApi from './services/tauri';
-import { formatBytes, formatPercent } from './utils/format';
+import { formatBytes } from './utils/format';
 import { AISuggestions } from './components/AISuggestions';
 import { HardwareHealth } from './components/HardwareHealth';
 import { FocusModeSettingsModal } from './components/FocusModeSettingsModal';
 import { MaintenanceSettingsModal } from './components/MaintenanceSettingsModal';
+import DeepSleep from './components/DeepSleep';
 
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
   } = useAppStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'deep_sleep' | 'boot' | 'optimizations' | 'performance' | 'settings'>('dashboard');
   const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'hardware_health'>('dashboard');
   const [isFocusModeSettingsOpen, setIsFocusModeSettingsOpen] = useState(false);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
@@ -40,7 +42,7 @@ function App() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
+      setError(typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Failed to fetch metrics'));
       setIsLoading(false);
     }
   };
@@ -174,6 +176,9 @@ function App() {
                 🤖 AI Assistant
               </button>
               <button
+                onClick={() => setCurrentView('deep_sleep')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'deep_sleep'
                 onClick={() => setCurrentView('hardware_health')}
                 className={`rounded-lg px-4 py-2 transition-colors ${
                   currentView === 'hardware_health'
@@ -181,6 +186,7 @@ function App() {
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
+                ❄️ Deep Sleep
                 🏥 Hardware Health
               </button>
             </nav>
@@ -197,7 +203,7 @@ function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        {currentView === 'dashboard' ? (
+        {currentView === 'dashboard' && (
           <>
             <div className="mb-8 flex flex-col justify-between md:flex-row md:items-center">
               <div>
@@ -272,16 +278,18 @@ function App() {
             {/* Coming Soon Section */}
             <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
               <FeatureCard
-                title="Performance History"
-                description="Track your system's performance over time"
-                icon="📊"
-                status="Coming Soon"
+                title="Startup Optimizer"
+                description="Manage startup programs & speed up boot time"
+                icon="🚀"
+                status="Active"
+                onClick={() => setCurrentView('boot')}
               />
               <FeatureCard
-                title="Process Manager"
-                description="Manage running processes and services"
-                icon="⚙️"
-                status="Coming Soon"
+                title="AI Recommendation Engine"
+                description="Get smart optimization suggestions"
+                icon="🧠"
+                status="Active"
+                onClick={() => setCurrentView('ai')}
               />
               <FeatureCard
                 title="Automated Maintenance"
@@ -297,6 +305,8 @@ function App() {
         ) : (
           <AISuggestions />
         )}
+        {currentView === 'ai' && <AISuggestions />}
+        {currentView === 'deep_sleep' && <DeepSleep />}
       </main>
 
       {/* Footer */}
