@@ -6,6 +6,7 @@ import { AISuggestions } from './components/AISuggestions';
 import { HardwareHealth } from './components/HardwareHealth';
 import { FocusModeSettingsModal } from './components/FocusModeSettingsModal';
 import { MaintenanceSettingsModal } from './components/MaintenanceSettingsModal';
+import { BatterySettings } from './components/BatterySettings';
 import DeepSleep from './components/DeepSleep';
 
 
@@ -17,8 +18,7 @@ function App() {
   } = useAppStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'deep_sleep' | 'boot' | 'optimizations' | 'performance' | 'settings'>('dashboard');
-  const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'hardware_health'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'ai' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'battery' | 'deep_sleep' | 'hardware_health'>('dashboard');
   const [isFocusModeSettingsOpen, setIsFocusModeSettingsOpen] = useState(false);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
 
@@ -176,9 +176,26 @@ function App() {
                 🤖 AI Assistant
               </button>
               <button
+                onClick={() => setCurrentView('battery')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'battery'
+                    ? 'bg-primary text-white'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                🔋 Battery Saver
+              </button>
+              <button
                 onClick={() => setCurrentView('deep_sleep')}
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   currentView === 'deep_sleep'
+                    ? 'bg-primary text-white'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                ❄️ Deep Sleep
+              </button>
+              <button
                 onClick={() => setCurrentView('hardware_health')}
                 className={`rounded-lg px-4 py-2 transition-colors ${
                   currentView === 'hardware_health'
@@ -186,7 +203,6 @@ function App() {
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
-                ❄️ Deep Sleep
                 🏥 Hardware Health
               </button>
             </nav>
@@ -285,6 +301,13 @@ function App() {
                 onClick={() => setCurrentView('boot')}
               />
               <FeatureCard
+                title="Battery Saver"
+                description="Limit charge to 80% and extend cell lifespan"
+                icon="🔋"
+                status="Active"
+                onClick={() => setCurrentView('battery')}
+              />
+              <FeatureCard
                 title="AI Recommendation Engine"
                 description="Get smart optimization suggestions"
                 icon="🧠"
@@ -300,12 +323,10 @@ function App() {
               />
             </div>
           </>
-        ) : currentView === 'hardware_health' ? (
-          <HardwareHealth />
-        ) : (
-          <AISuggestions />
         )}
         {currentView === 'ai' && <AISuggestions />}
+        {currentView === 'battery' && <BatterySettings />}
+        {currentView === 'hardware_health' && <HardwareHealth />}
         {currentView === 'deep_sleep' && <DeepSleep />}
       </main>
 
