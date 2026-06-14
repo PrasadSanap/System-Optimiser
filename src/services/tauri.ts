@@ -28,6 +28,7 @@ import type {
   NotificationEvent,
   FocusModeSettings,
   FocusModeStatus,
+  BatteryStatus,
   DeepSleepStatus,
   HardwareHealthData,
   DiskHealthInfo,
@@ -333,6 +334,21 @@ export const hardwareHealthApi = {
 };
 
 /**
+ * Battery API
+ */
+export const batteryApi = {
+  async getStatus(): Promise<BatteryStatus> {
+    return invoke<BatteryStatus>('get_battery_status');
+  },
+  async setChargeLimit(enable: boolean): Promise<string> {
+    return invoke<string>('set_charge_limit', { enable });
+  },
+  async toggleSmartOverride(overrideActive: boolean): Promise<string> {
+    return invoke<string>('toggle_smart_override', { overrideActive });
+  },
+};
+
+/**
  * Combined API export
  */
 export const tauriApi = {
@@ -342,6 +358,7 @@ export const tauriApi = {
   ai: aiApi,
   settings: settingsApi,
   performance: performanceApi,
+  battery: batteryApi,
   deepSleep: deepSleepApi,
   hardwareHealth: hardwareHealthApi,
   events,

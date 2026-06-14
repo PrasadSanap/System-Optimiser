@@ -1,4 +1,4 @@
-mod system;
+pub mod system;
 
 use std::sync::Mutex;
 use system::{MetricsCollector, BootOptimizer, AISuggestionsEngine};
@@ -12,6 +12,7 @@ struct AppState {
     ai_engine: Mutex<AISuggestionsEngine>,
     focus_mode_manager: Mutex<system::FocusModeManager>,
     maintenance_scheduler: Mutex<system::MaintenanceScheduler>,
+    battery_manager: Mutex<system::BatteryManager>,
     deep_sleep: Mutex<system::DeepSleepManager>,
     hardware_health: Mutex<system::HardwareHealthCollector>,
     // Throttles system-modifying commands so rapid repeated calls cannot
@@ -175,6 +176,12 @@ fn get_optimization_details(
     // Validate optimization ID
     validate_optimization_id(&optimization_id)?;
 
+    let suggestions = ai_engine.generate_suggestions(
+        metrics.cpu.usage_percent as f64,
+        metrics.memory.usage_percent as f64,
+        metrics.disk.usage_percent as f64,
+        None,
+    );
     // Get details from boot optimizer
     let boot_optimizer = state.boot_optimizer.lock()
         .map_err(|e| format!("Failed to lock boot optimizer: {}", e))?;
@@ -874,6 +881,30 @@ fn get_maintenance_logs(state: State<AppState>) -> Result<Vec<system::Maintenanc
     Ok(scheduler.get_logs())
 }
 
+// Battery Commands
+#[tauri::command]
+fn get_battery_status(state: State<AppState>) -> Result<system::BatteryStatus, String> {
+    let manager = state.battery_manager.lock()
+        .map_err(|e| format!("Failed to lock battery manager: {}", e))?;
+    manager.get_status()
+}
+
+#[tauri::command]
+fn set_charge_limit(state: State<AppState>, enable: bool) -> Result<String, String> {
+    let manager = state.battery_manager.lock()
+        .map_err(|e| format!("Failed to lock battery manager: {}", e))?;
+    manager.set_charge_limit(enable)?;
+    Ok("Charge limit updated successfully".to_string())
+}
+
+#[tauri::command]
+fn toggle_smart_override(state: State<AppState>, override_active: bool) -> Result<String, String> {
+    let manager = state.battery_manager.lock()
+        .map_err(|e| format!("Failed to lock battery manager: {}", e))?;
+    manager.toggle_smart_override(override_active)?;
+    Ok("Smart override updated successfully".to_string())
+}
+
 #[tauri::command]
 fn get_deep_sleep_status(state: State<AppState>) -> Result<system::DeepSleepStatus, String> {
     let ds = state.deep_sleep.lock()
@@ -913,6 +944,8 @@ fn freeze_process(
         .map_err(|e| format!("Failed to lock deep sleep manager: {}", e))?;
     ds.freeze_process(pid, name, memory_bytes)?;
     Ok(ds.get_status())
+}
+
 // Hardware Health Commands
 #[tauri::command]
 fn get_hardware_health(state: State<AppState>) -> Result<system::HardwareHealthData, String> {
@@ -945,6 +978,7 @@ pub fn run() {
             ai_engine: Mutex::new(AISuggestionsEngine::new()),
             focus_mode_manager: Mutex::new(system::FocusModeManager::new()),
             maintenance_scheduler: Mutex::new(system::MaintenanceScheduler::new()),
+            battery_manager: Mutex::new(system::BatteryManager::new()),
             deep_sleep: Mutex::new(system::DeepSleepManager::new(None)),
             hardware_health: Mutex::new(system::HardwareHealthCollector::new()),
             rate_limiter: Mutex::new(system::RateLimiter::new()),
@@ -1037,6 +1071,9 @@ pub fn run() {
             get_maintenance_config,
             update_maintenance_config,
             get_maintenance_logs,
+            get_battery_status,
+            set_charge_limit,
+            toggle_smart_override,
             get_deep_sleep_status,
             update_deep_sleep_config,
             thaw_process,

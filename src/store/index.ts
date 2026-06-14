@@ -10,6 +10,7 @@ import type {
   FocusModeStatus,
   MaintenanceConfig,
   MaintenanceLog,
+  BatteryStatus,
   DeepSleepStatus,
   HardwareHealthData,
 } from '../types';
@@ -33,6 +34,7 @@ interface AppStore {
   focusModeSettings: FocusModeSettings | null;
   maintenanceConfig: MaintenanceConfig | null;
   maintenanceLogs: MaintenanceLog[];
+  batteryStatus: BatteryStatus | null;
   hardwareHealth: HardwareHealthData | null;
   isLoadingHardwareHealth: boolean;
   
@@ -54,6 +56,7 @@ interface AppStore {
   setFocusModeSettings: (settings: FocusModeSettings) => void;
   setMaintenanceConfig: (config: MaintenanceConfig) => void;
   setMaintenanceLogs: (logs: MaintenanceLog[]) => void;
+  setBatteryStatus: (status: BatteryStatus) => void;
   setHardwareHealth: (data: HardwareHealthData) => void;
   setIsLoadingHardwareHealth: (loading: boolean) => void;
   setIsLoadingMetrics: (loading: boolean) => void;
@@ -83,9 +86,9 @@ export const useAppStore = create<AppStore>((set) => ({
   focusModeSettings: null,
   maintenanceConfig: null,
   maintenanceLogs: [],
+  batteryStatus: null,
   hardwareHealth: null,
   isLoadingHardwareHealth: false,
-  
   // Initial Loading States
   isLoadingMetrics: false,
   isLoadingOptimizations: false,
@@ -121,6 +124,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setFocusModeSettings: (settings) => set({ focusModeSettings: settings }),
   setMaintenanceConfig: (config) => set({ maintenanceConfig: config }),
   setMaintenanceLogs: (logs) => set({ maintenanceLogs: logs }),
+  setBatteryStatus: (status) => set({ batteryStatus: status }),
   setHardwareHealth: (data) => set({ hardwareHealth: data }),
   setIsLoadingHardwareHealth: (loading) => set({ isLoadingHardwareHealth: loading }),
   setIsLoadingMetrics: (loading) => set({ isLoadingMetrics: loading }),

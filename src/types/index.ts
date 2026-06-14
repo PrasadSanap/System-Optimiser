@@ -386,8 +386,7 @@ export interface HardwareHealthData {
 }
 
 // UI State Types
-export type ViewType = 'dashboard' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'deep_sleep';
-export type ViewType = 'dashboard' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'hardware_health';
+export type ViewType = 'dashboard' | 'ai' | 'boot' | 'optimizations' | 'performance' | 'settings' | 'battery' | 'deep_sleep' | 'hardware_health';
 
 export interface AppState {
   currentView: ViewType;
@@ -427,6 +426,17 @@ export interface MaintenanceLog {
   tasks_run: string[];
   status: string;
   details: string;
+}
+
+export interface BatteryStatus {
+  is_supported: boolean;
+  charge_limit_enabled: boolean;
+  charge_limit_percent: number;
+  current_charge_percent: number;
+  design_capacity_mah: number;
+  current_max_capacity_mah: number;
+  wear_level_percent: number;
+  smart_override_active: boolean;
 }
 
 export interface FocusModeStatus {
