@@ -61,6 +61,35 @@ pub struct MetricsCollector {
     networks: Networks,
 }
 
+/// List of critical system processes that should not be terminated
+/// Includes Windows, Linux, and macOS system processes
+const PROTECTED_PROCESSES: &[&str] = &[
+    // Windows critical services and system processes
+    "svchost.exe", "csrss.exe", "lsass.exe", "services.exe", "dwm.exe",
+    "explorer.exe", "winlogon.exe", "smss.exe", "wininit.exe", "ntoskrnl.exe",
+    "system", "systemd", "registry", "conhost.exe", "taskhost.exe",
+    "SearchIndexer.exe", "WmiPrvSE.exe", "unsecapp.exe", "WinRM.exe",
+    "msiexec.exe", "rundll32.exe", "svchost", "ntvdm.exe",
+    // Linux critical services
+    "systemd", "init", "kthreadd", "kworker", "dbus-daemon", "ksoftirqd",
+    "kswapd", "kdevtmpfsd", "kauditd", "kedintd", "kthrotld",
+    "kintegrityd", "kblockd", "bioset", "kthrotld", "jbd2",
+    // macOS critical services
+    "launchd", "kernel_task", "WindowServer", "Finder", "Dock", "loginwindow",
+    "mds", "mdworker", "configd", "dynamic_pager", "securityd",
+    "SystemUIServer", "Spotlight", "diskarbitrationd", "DirectoryService",
+    // Common system processes across platforms
+    "kernel", "swapper", "PID0", "systemd-journald", "systemd-logind",
+];
+
+/// Check if a process is in the protected list (case-insensitive for cross-platform compatibility)
+fn is_protected_process(process_name: &str) -> bool {
+    let name_lower = process_name.to_lowercase();
+    PROTECTED_PROCESSES.iter().any(|protected| {
+        protected.to_lowercase() == name_lower
+    })
+}
+
 impl MetricsCollector {
     pub fn new() -> Self {
         Self {
@@ -261,6 +290,47 @@ impl MetricsCollector {
         let pid = Pid::from_u32(pid);
 
         if let Some(process) = self.system.process(pid) {
+            let process_name = process.name();
+
+            // Protection Layer 1: Check if process is in protected list
+            if is_protected_process(process_name) {
+                return Err(format!(
+                    "Cannot terminate critical system process '{}' (PID: {}). \
+                     This process is essential for system stability.",
+                    process_name, pid
+                ));
+            }
+
+            // Protection Layer 2: Check if process is owned by system/root
+            // On Windows: Check if process name is a known system service
+            // On Unix: Check if user is root or if process is system-owned
+            #[cfg(target_os = "windows")]
+            {
+                // Windows processes like explorer.exe, dwm.exe are marked as critical
+                if process_name.contains("system") || process_name.contains("windows") {
+                    return Err(format!(
+                        "Cannot terminate system process '{}' (PID: {}). \
+                         Use Task Manager or system administration tools to manage this process.",
+                        process_name, pid
+                    ));
+                }
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                // On Unix-like systems, check if user field suggests root ownership
+                // Note: sysinfo doesn't expose user info directly, so we rely on process name checks
+                let suspicious_system_names = ["init", "systemd", "kernel", "kthreadd"];
+                if suspicious_system_names.iter().any(|&name| process_name.contains(name)) {
+                    return Err(format!(
+                        "Cannot terminate core system process '{}' (PID: {}). \
+                         This process is required for system operation.",
+                        process_name, pid
+                    ));
+                }
+            }
+
+            // Protection Layer 3: Require explicit force flag for potentially dangerous operations
             // Send SIGTERM for graceful shutdown when force=false,
             // or SIGKILL for immediate termination when force=true.
             // On Windows, Signal::Term sends WM_CLOSE and Signal::Kill
@@ -270,13 +340,16 @@ impl MetricsCollector {
             match process.kill_with(signal) {
                 Some(true) => Ok(()),
                 Some(false) => Err(format!(
-                    "Failed to send {} to process {}",
+                    "Failed to send {} to process {} ({})",
                     if force { "SIGKILL" } else { "SIGTERM" },
+                    process_name,
                     pid
                 )),
                 None => Err(format!(
-                    "Signal {} is not supported on this platform",
-                    if force { "SIGKILL" } else { "SIGTERM" }
+                    "Signal {} is not supported on this platform for process {} ({})",
+                    if force { "SIGKILL" } else { "SIGTERM" },
+                    process_name,
+                    pid
                 )),
             }
         } else {

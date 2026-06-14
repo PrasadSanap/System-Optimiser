@@ -240,31 +240,31 @@ impl AISuggestionsEngine {
     pub fn generate_insights(&self, cpu_usage: f64, memory_usage: f64, disk_usage: f64) -> Vec<AIInsight> {
         let mut insights = Vec::new();
 
-        // Performance analysis
+        // Performance analysis based on measured metrics
         if cpu_usage < 30.0 && memory_usage < 50.0 {
             insights.push(AIInsight {
                 insight_type: "success".to_string(),
-                message: "🎯 Status: Your system is running well".to_string(),
+                message: "✅ System performing well".to_string(),
                 details: Some(format!(
-                    "System resources are healthy and operating efficiently. CPU at {:.1}%, Memory at {:.1}%. Continue monitoring and maintaining regular system upkeep.",
+                    "Your system is running smoothly. CPU at {:.1}%, Memory at {:.1}%. System resources are healthy and operating efficiently. Continue monitoring and maintaining regular system upkeep.",
                     cpu_usage, memory_usage
                 )),
                 action: None,
-                confidence: 0.95,
+                confidence: 1.0,
             });
         } else if cpu_usage > 70.0 || memory_usage > 70.0 {
             insights.push(AIInsight {
                 insight_type: "info".to_string(),
-                message: "📊 Notice: Moderate to high resource usage".to_string(),
+                message: "📊 Moderate to high resource usage detected".to_string(),
                 details: Some(format!(
-                    "CPU is at {:.1}% and Memory is at {:.1}%. Multiple applications are running. Closing unused programs or tabs may improve system responsiveness.",
+                    "CPU is at {:.1}% and Memory is at {:.1}%. Multiple applications are running. Consider checking running processes to identify resource-heavy applications. Closing unused programs or tabs may improve system responsiveness.",
                     cpu_usage, memory_usage
                 )),
                 action: Some(InsightAction {
                     label: "View active processes".to_string(),
                     command: "view_processes".to_string(),
                 }),
-                confidence: 0.87,
+                confidence: 1.0,
             });
         }
 
@@ -281,7 +281,7 @@ impl AISuggestionsEngine {
                     label: "View memory usage details".to_string(),
                     command: "view_processes".to_string(),
                 }),
-                confidence: 0.93,
+                confidence: 1.0,
             });
         }
 
@@ -289,29 +289,29 @@ impl AISuggestionsEngine {
         if cpu_usage > 50.0 && memory_usage > 60.0 {
             insights.push(AIInsight {
                 insight_type: "tip".to_string(),
-                message: "💡 Suggestion: Consider memory optimization".to_string(),
+                message: "💡 Suggestion: Consider resource optimization".to_string(),
                 details: Some(format!(
-                    "Your system is running multiple resource-intensive processes simultaneously. CPU: {:.1}%, Memory: {:.1}%. Closing unused applications can improve system responsiveness and prevent performance degradation.",
+                    "Your system is running multiple resource-intensive processes simultaneously. CPU: {:.1}%, Memory: {:.1}%. Monitor running processes and consider closing unused applications to improve system responsiveness and prevent performance degradation.",
                     cpu_usage, memory_usage
                 )),
                 action: Some(InsightAction {
                     label: "View active processes".to_string(),
                     command: "view_processes".to_string(),
                 }),
-                confidence: 0.82,
+                confidence: 1.0,
             });
         }
 
         // Maintenance recommendation
         insights.push(AIInsight {
             insight_type: "tip".to_string(),
-            message: "💻 Maintenance Tip: Regular system upkeep".to_string(),
+            message: "🔧 Maintenance Tip: Regular system upkeep".to_string(),
             details: Some(format!(
                 "Regular system maintenance and periodic restarts help maintain performance over time. Consider scheduling maintenance during low-usage periods for minimal disruption. Current system metrics: CPU {:.1}%, Memory {:.1}%, Disk {:.1}%.",
                 cpu_usage, memory_usage, disk_usage
             )),
             action: None,
-            confidence: 0.88,
+            confidence: 1.0,
         });
 
         // Critical storage warning
@@ -327,7 +327,7 @@ impl AISuggestionsEngine {
                     label: "View cleanup suggestions".to_string(),
                     command: "clean_disk".to_string(),
                 }),
-                confidence: 0.97,
+                confidence: 1.0,
             });
         } else if disk_usage > 75.0 {
             insights.push(AIInsight {
@@ -341,7 +341,7 @@ impl AISuggestionsEngine {
                     label: "View cleanup options".to_string(),
                     command: "clean_disk".to_string(),
                 }),
-                confidence: 0.85,
+                confidence: 1.0,
             });
         }
 
@@ -350,11 +350,12 @@ impl AISuggestionsEngine {
             insights.push(AIInsight {
                 insight_type: "success".to_string(),
                 message: "✅ System Status: Performance is healthy".to_string(),
-                details: Some(format!(
-                    "Your system is performing well with current resource usage at healthy levels. Monitoring shows CPU and memory are within normal operating ranges. Continue regular maintenance for optimal performance.",
-                )),
+                details: Some(
+                    "Your system is operating normally with current resource usage at healthy levels. Monitoring shows CPU and memory are within normal operating ranges. Regular maintenance and monitoring help maintain optimal performance."
+                        .to_string(),
+                ),
                 action: None,
-                confidence: 0.91,
+                confidence: 1.0,
             });
         }
 

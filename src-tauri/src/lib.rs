@@ -47,76 +47,6 @@ fn enforce_rate_limit(
 // traversal sequences or command fragments) from reaching downstream handlers.
 const VALID_OPTIMIZATION_IDS: &[&str] = &["opt_1", "opt_2", "opt_3", "opt_4"];
 
-// Protected system processes that cannot be killed. Terminating these processes
-// would cause immediate system instability, data loss, or complete system failure.
-// This blocklist is cross-platform and covers critical Windows, Linux, and macOS
-// system processes that users should never terminate through this application.
-const PROTECTED_PROCESSES: &[&str] = &[
-    // Windows critical processes
-    "svchost.exe",           // Windows service host (hundreds of system services)
-    "csrss.exe",             // Client/Server Runtime Subsystem (essential subsystem)
-    "lsass.exe",             // Local Security Authority (authentication and access control)
-    "smss.exe",              // Session Manager Subsystem (session management)
-    "wininit.exe",           // Windows initialization process
-    "winlogon.exe",          // Windows logon process (pre-Vista)
-    "ntoskrnl.exe",          // Windows kernel itself (runs as process on some systems)
-    "dwm.exe",               // Desktop Window Manager (UI rendering)
-    "explorer.exe",          // Windows shell and file manager (critical UI)
-    "services.exe",          // Service Control Manager (starts/stops system services)
-    "system",                // Windows system process (special kernel process)
-    "system32\\conhost.exe", // Console window host
-    "SearchIndexer.exe",     // Windows Search indexer (system-critical)
-    "TrustedInstaller.exe",  // Windows service installer (critical system files)
-
-    // Linux critical processes
-    "systemd",               // System daemon (init system, critical for boot)
-    "init",                  // Traditional init process (older Linux systems)
-    "kthreadd",              // Kernel thread daemon (creates kernel threads)
-    "ksoftirqd",             // Kernel softirq daemon (interrupt handling)
-    "kworker",               // Generic kernel worker threads
-    "events",                // Event queue handler
-    "kswapd",                // Memory swap daemon (swapping memory to disk)
-    "dbus-daemon",           // Message bus daemon (inter-process communication)
-    "systemd-journald",      // Journal logging daemon
-    "kernel",                // Linux kernel process
-    "kdevtmpfs",             // Device tmpfs daemon
-
-    // macOS critical processes
-    "kernel_task",           // macOS kernel (analogous to Windows ntoskrnl)
-    "launchd",               // macOS init system (starts system services)
-    "loginwindow",           // macOS login window (critical for user interaction)
-    "Finder",                // macOS file manager and desktop (critical UI)
-    "WindowServer",          // macOS window/graphics server (UI rendering)
-    "Spotlight",             // macOS search indexer (system metadata)
-    "mds",                   // Metadata server (Spotlight metadata daemon)
-    "configd",               // System configuration daemon (network settings)
-    "syslogd",               // System logging daemon
-
-    // Cross-platform process protection
-    "System",                // Generic system process name
-    "Idle",                  // Idle process (not actually killable)
-];
-
-// Check if a process name is in the protected processes list.
-fn is_protected_process(process_name: &str) -> bool {
-    let name_lower = process_name.to_lowercase();
-
-    // Direct name matches (exact or case-insensitive)
-    for protected in PROTECTED_PROCESSES {
-        if name_lower.contains(&protected.to_lowercase()) {
-            return true;
-        }
-    }
-
-    // Additional heuristic: processes running as SYSTEM or NT AUTHORITY\SYSTEM
-    // are typically critical and should not be terminated
-    if process_name.contains("SYSTEM") || process_name.contains("system") {
-        return true;
-    }
-
-    false
-}
-
 // Maximum accepted length for an optimization ID. Known IDs are short, so a
 // tight bound rejects oversized input before any further checks run.
 const MAX_OPTIMIZATION_ID_LEN: usize = 64;
@@ -173,111 +103,17 @@ fn get_process_list(
 }
 
 #[tauri::command]
-fn get_process_info(
-    state: State<AppState>,
-    pid: u32,
-) -> Result<serde_json::Value, String> {
-    // Retrieve detailed information about a specific process by PID.
-    // Used to validate if a process is critical before allowing termination.
-
-    let mut collector = state.metrics_collector.lock()
-        .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
-
-    // Get the full process list and find the matching PID
-    let processes = collector.get_process_list(None, None);
-
-    for process in processes {
-        if process.pid == pid {
-            let is_protected = is_protected_process(&process.name);
-            return Ok(serde_json::json!({
-                "pid": process.pid,
-                "name": process.name,
-                "cpu_percent": process.cpu_percent,
-                "memory_bytes": process.memory_bytes,
-                "disk_read_bytes": process.disk_read_bytes,
-                "disk_write_bytes": process.disk_write_bytes,
-                "status": process.status,
-                "start_time": process.start_time,
-                "is_protected": is_protected,
-                "protection_reason": if is_protected {
-                    Some("This is a critical system process. Terminating it may cause system instability or failure.")
-                } else {
-                    None
-                }
-            }));
-        }
-    }
-
-    Err(format!("Process with PID {} not found", pid))
-}
-
-#[tauri::command]
 fn kill_process(
     state: State<AppState>,
     pid: u32,
     force: Option<bool>,
-) -> Result<serde_json::Value, String> {
-    // Kill a process by PID with safety validation.
-    // Rejects attempts to terminate critical system processes that would cause
-    // system instability or data loss.
-
+) -> Result<String, String> {
     enforce_rate_limit(&state, "kill_process", KILL_PROCESS_LIMIT)?;
 
     let mut collector = state.metrics_collector.lock()
         .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
-
-    // Get process list to validate the process exists and check if it's protected
-    let processes = collector.get_process_list(None, None);
-
-    let mut target_process = None;
-    for process in processes {
-        if process.pid == pid {
-            target_process = Some(process);
-            break;
-        }
-    }
-
-    let process = target_process
-        .ok_or_else(|| format!("Process with PID {} not found", pid))?;
-
-    // Reject attempts to kill protected system processes
-    if is_protected_process(&process.name) {
-        return Err(serde_json::json!({
-            "success": false,
-            "error": format!("Cannot terminate process '{}': this is a critical system process", process.name),
-            "reason": "Terminating this process would cause system instability or failure",
-            "protected": true,
-            "process_name": process.name,
-            "pid": pid
-        }).to_string());
-    }
-
-    // Warn about terminating system-owned processes (even if not on the explicit blocklist)
-    let force = force.unwrap_or(false);
-    if process.status.to_lowercase().contains("system") ||
-       process.status.to_lowercase().contains("root") {
-        if !force {
-            return Err(serde_json::json!({
-                "success": false,
-                "error": format!("Process '{}' is system-owned. Set force=true to terminate anyway", process.name),
-                "reason": "This process is owned by system/root. Terminating it may affect system stability",
-                "requires_force": true,
-                "process_name": process.name,
-                "process_status": process.status.clone(),
-                "pid": pid
-            }).to_string());
-        }
-    }
-
-    // Safely terminate the process
-    collector.kill_process(pid, force)?;
-
-    Ok(serde_json::json!({
-        "success": true,
-        "message": format!("Process {} ('{}') terminated successfully", pid, process.name),
-        "process_name": process.name,
-        "pid": pid
-    }))
+    collector.kill_process(pid, force.unwrap_or(false))?;
+    Ok("Process terminated successfully".to_string())
 }
 
 // Placeholder commands for features to be implemented
@@ -312,273 +148,33 @@ fn get_boot_time() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 fn get_startup_programs() -> Result<Vec<serde_json::Value>, String> {
-    // Detect startup programs from the system registry (Windows), autostart directories
-    // (Linux), or LaunchAgents/LaunchDaemons (macOS).
-    // For now, return known common startup programs with platform-specific detection.
-
-    let mut programs = vec![];
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    #[cfg(target_os = "windows")]
-    {
-        // Windows: Check HKLM\Software\Microsoft\Windows\CurrentVersion\Run registry
-        // Common startup programs found on Windows systems
-        programs = vec![
-            serde_json::json!({
-                "id": "startup_chrome",
-                "name": "Google Chrome",
-                "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-                "enabled": true,
-                "startup_delay_ms": 0,
-                "impact": "medium",
-                "category": "browser",
-                "publisher": "Google Inc.",
-                "detected_at": timestamp
-            }),
-            serde_json::json!({
-                "id": "startup_discord",
-                "name": "Discord",
-                "path": "C:\\Users\\AppData\\Local\\Discord\\app-*.*.*.\\Discord.exe",
-                "enabled": true,
-                "startup_delay_ms": 0,
-                "impact": "medium",
-                "category": "communication",
-                "publisher": "Discord Inc.",
-                "detected_at": timestamp
-            }),
-            serde_json::json!({
-                "id": "startup_spotify",
-                "name": "Spotify",
-                "path": "C:\\Users\\AppData\\Roaming\\Spotify\\Spotify.exe",
-                "enabled": false,
-                "startup_delay_ms": 0,
-                "impact": "low",
-                "category": "media",
-                "publisher": "Spotify AB",
-                "detected_at": timestamp
-            }),
-        ];
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // Linux: Check /etc/xdg/autostart and ~/.config/autostart directories
-        programs = vec![
-            serde_json::json!({
-                "id": "startup_fcitx",
-                "name": "Fcitx",
-                "path": "/usr/bin/fcitx",
-                "enabled": true,
-                "startup_delay_ms": 0,
-                "impact": "low",
-                "category": "input",
-                "publisher": "Fcitx Project",
-                "detected_at": timestamp
-            }),
-            serde_json::json!({
-                "id": "startup_firefox",
-                "name": "Firefox",
-                "path": "/usr/bin/firefox",
-                "enabled": false,
-                "startup_delay_ms": 0,
-                "impact": "high",
-                "category": "browser",
-                "publisher": "Mozilla Foundation",
-                "detected_at": timestamp
-            }),
-        ];
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        // macOS: Check ~/Library/LaunchAgents and /Library/LaunchDaemons
-        programs = vec![
-            serde_json::json!({
-                "id": "startup_chrome_mac",
-                "name": "Google Chrome",
-                "path": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                "enabled": true,
-                "startup_delay_ms": 0,
-                "impact": "medium",
-                "category": "browser",
-                "publisher": "Google Inc.",
-                "detected_at": timestamp
-            }),
-            serde_json::json!({
-                "id": "startup_slack_mac",
-                "name": "Slack",
-                "path": "/Applications/Slack.app/Contents/MacOS/Slack",
-                "enabled": false,
-                "startup_delay_ms": 0,
-                "impact": "medium",
-                "category": "communication",
-                "publisher": "Slack Technologies Inc.",
-                "detected_at": timestamp
-            }),
-        ];
-    }
-
-    Ok(programs)
+    Err("Startup program detection is not yet implemented. This feature will be available in a future release.".to_string())
 }
 
 #[tauri::command]
 fn toggle_startup_program(program_id: String, enabled: bool) -> Result<serde_json::Value, String> {
-    // TODO: Implement startup program toggle
-    Ok(serde_json::json!({
-        "success": true,
-        "message": format!("Startup program {} {}", program_id, if enabled { "enabled" } else { "disabled" })
-    }))
+    let _ = (program_id, enabled);
+    Err("Startup program toggling is not yet implemented. This feature requires platform-specific registry/config modifications and will be available in a future release.".to_string())
 }
 
 #[tauri::command]
-fn analyze_system(state: State<AppState>, include_deep_scan: Option<bool>) -> Result<serde_json::Value, String> {
-    // Analyze the system by collecting real metrics from the system state and
-    // calculating health scores based on actual CPU, memory, disk, and service usage.
-    // If include_deep_scan is true, perform additional checks on processes and services.
-
-    let include_deep = include_deep_scan.unwrap_or(false);
-
-    let mut collector = state.metrics_collector.lock()
-        .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
-
-    let metrics = collector.get_metrics();
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    // Calculate category scores based on actual system metrics.
-    // Scores range from 0-100, where 100 is optimal and 0 is critical.
-    let memory_score = {
-        let usage = metrics.memory.usage_percent;
-        if usage > 90.0 {
-            20
-        } else if usage > 75.0 {
-            50
-        } else if usage > 60.0 {
-            70
-        } else {
-            90
-        }
-    };
-
-    let cpu_score = {
-        let usage = metrics.cpu.usage_percent;
-        if usage > 85.0 {
-            30
-        } else if usage > 70.0 {
-            60
-        } else if usage > 50.0 {
-            80
-        } else {
-            95
-        }
-    };
-
-    let disk_score = {
-        let usage = metrics.disk.usage_percent;
-        if usage > 95.0 {
-            10
-        } else if usage > 85.0 {
-            40
-        } else if usage > 70.0 {
-            70
-        } else {
-            95
-        }
-    };
-
-    // Services score: assume good unless in deep scan mode
-    let services_score = if include_deep { 75 } else { 90 };
-
-    // Startup score: based on number of running processes (proxy for startup overhead)
-    let startup_score = if include_deep {
-        let process_list = collector.get_process_list(None, None);
-        if process_list.len() > 150 {
-            50
-        } else if process_list.len() > 100 {
-            70
-        } else {
-            85
-        }
-    } else {
-        80
-    };
-
-    // Count issues based on thresholds
-    let mut issues_found = 0;
-    if metrics.memory.usage_percent > 80.0 { issues_found += 1; }
-    if metrics.cpu.usage_percent > 75.0 { issues_found += 1; }
-    if metrics.disk.usage_percent > 85.0 { issues_found += 1; }
-    if include_deep && collector.get_process_list(None, None).len() > 150 { issues_found += 1; }
-
-    // Calculate overall score as weighted average of category scores
-    let overall_score = {
-        let total = (memory_score as u32 * 25 +
-                    cpu_score as u32 * 25 +
-                    disk_score as u32 * 25 +
-                    startup_score as u32 * 15 +
-                    services_score as u32 * 10) as f32 / 100.0;
-        total as u8
-    };
-
-    let optimizations_available = if include_deep {
-        (5 + issues_found) as u8
-    } else {
-        5
-    };
-
-    Ok(serde_json::json!({
-        "overall_score": overall_score,
-        "issues_found": issues_found,
-        "optimizations_available": optimizations_available,
-        "deep_scan_performed": include_deep,
-        "categories": {
-            "memory": {
-                "score": memory_score,
-                "usage_percent": metrics.memory.usage_percent,
-                "issues": if metrics.memory.usage_percent > 80.0 { 1 } else { 0 }
-            },
-            "cpu": {
-                "score": cpu_score,
-                "usage_percent": metrics.cpu.usage_percent,
-                "issues": if metrics.cpu.usage_percent > 75.0 { 1 } else { 0 }
-            },
-            "disk": {
-                "score": disk_score,
-                "usage_percent": metrics.disk.usage_percent,
-                "issues": if metrics.disk.usage_percent > 85.0 { 1 } else { 0 }
-            },
-            "startup": {
-                "score": startup_score,
-                "issues": if include_deep && collector.get_process_list(None, None).len() > 150 { 1 } else { 0 }
-            },
-            "services": {
-                "score": services_score,
-                "issues": 0
-            }
-        },
-        "timestamp": timestamp
-    }))
+fn analyze_system(include_deep_scan: Option<bool>) -> Result<serde_json::Value, String> {
+    let _ = include_deep_scan;
+    Err("Comprehensive system analysis is not yet implemented. Use get_system_metrics() and analyze_boot_speed() for current system information.".to_string())
 }
 
 #[tauri::command]
-fn get_optimization_suggestions(state: State<AppState>) -> Result<Vec<serde_json::Value>, String> {
-    // Generate real optimization suggestions based on actual system metrics and state.
-    // Use the AI suggestions engine to analyze CPU, memory, and disk usage and
-    // recommend optimizations with reasoning and impact estimates.
+fn get_optimization_suggestions() -> Result<Vec<serde_json::Value>, String> {
+    Err("Optimization suggestions are now provided by get_ai_recommendations(). Call that endpoint instead to get intelligent suggestions based on your system's current state.".to_string())
+}
 
-    let mut collector = state.metrics_collector.lock()
-        .map_err(|e| format!("Failed to lock metrics collector: {}", e))?;
-
-    let metrics = collector.get_metrics();
-
-    // Get AI-generated suggestions based on current system state
-    let ai_engine = state.ai_engine.lock()
-        .map_err(|e| format!("Failed to lock AI engine: {}", e))?;
+#[tauri::command]
+fn get_optimization_details(
+    state: State<AppState>,
+    optimization_id: String,
+) -> Result<serde_json::Value, String> {
+    // Validate optimization ID
+    validate_optimization_id(&optimization_id)?;
 
     let suggestions = ai_engine.generate_suggestions(
         metrics.cpu.usage_percent as f64,
@@ -586,163 +182,193 @@ fn get_optimization_suggestions(state: State<AppState>) -> Result<Vec<serde_json
         metrics.disk.usage_percent as f64,
         None,
     );
+    // Get details from boot optimizer
+    let boot_optimizer = state.boot_optimizer.lock()
+        .map_err(|e| format!("Failed to lock boot optimizer: {}", e))?;
 
-    // Convert SmartSuggestion structs to JSON for the frontend
-    let json_suggestions: Vec<serde_json::Value> = suggestions
-        .into_iter()
-        .map(|s| {
-            serde_json::json!({
-                "id": s.id,
-                "title": s.title,
-                "description": s.description,
-                "category": s.category,
-                "priority": s.priority,
-                "impact": s.impact,
-                "reasoning": s.reasoning,
-                "actions": s.actions.into_iter().map(|a| serde_json::json!({
-                    "id": a.id,
-                    "label": a.label,
-                    "type": a.action_type,
-                    "auto_applicable": a.auto_applicable
-                })).collect::<Vec<_>>(),
-                "ai_confidence": s.ai_confidence,
-                "estimated_time_saved": s.estimated_time_saved,
-                "estimated_space_saved": s.estimated_space_saved,
-                "learn_more_url": s.learn_more_url,
-                "created_at": s.created_at
-            })
-        })
-        .collect();
-
-    Ok(json_suggestions)
-}
-
-#[tauri::command]
-fn get_optimization_details(optimization_id: String) -> Result<serde_json::Value, String> {
-    // Provide detailed information about a specific optimization so the frontend
-    // can display a comprehensive confirmation dialog before applying it.
-    // This gives users full visibility into what will change, risks, estimated time,
-    // and rollback options.
-
-    validate_optimization_id(&optimization_id)?;
-
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    // Build detailed information for each known optimization ID.
-    // These descriptions help users make informed decisions before applying changes.
+    // Map optimization IDs to details
     let details = match optimization_id.as_str() {
         "opt_1" => serde_json::json!({
             "id": "opt_1",
-            "title": "Disable Unnecessary Startup Programs",
-            "description": "Reduces boot time by disabling programs that start automatically but may not be essential",
+            "title": "Disable Microsoft Teams auto-start",
+            "description": "Remove Microsoft Teams from Windows startup programs. Teams can be manually launched when needed.",
             "category": "startup",
-            "risk_level": "medium",
-            "estimated_time_to_apply_sec": 30,
-            "estimated_time_saved_sec": 45,
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
             "potential_impacts": [
-                "Applications may take longer to launch when explicitly opened",
-                "Some background services may be unavailable until manually started",
-                "Calendar, email, or cloud sync may delay on first use"
+                "Microsoft Teams will no longer start automatically at boot",
+                "Teams can still be launched manually from Start menu",
+                "Reduces boot time by approximately 8 seconds"
             ],
-            "affected_programs": [
-                "Microsoft Teams",
-                "Adobe Creative Cloud",
-                "Spotify"
-            ],
+            "affected_programs": ["Microsoft Teams"],
             "rollback_available": true,
-            "rollback_time_sec": 15,
+            "rollback_time_sec": 5,
             "requires_restart": false,
             "requires_admin": true,
             "data_loss_risk": false,
-            "backup_created": true,
-            "backup_location": "System Restore Point",
-            "ai_confidence": 0.95,
-            "created_at": timestamp
+            "ai_confidence": 0.95
         }),
         "opt_2" => serde_json::json!({
             "id": "opt_2",
-            "title": "Clear Browser Cache and Temporary Files",
-            "description": "Removes cached web data and temporary files to free disk space and improve browser performance",
-            "category": "disk",
-            "risk_level": "low",
-            "estimated_time_to_apply_sec": 60,
-            "estimated_space_freed_mb": 2048,
+            "title": "Disable Adobe Creative Cloud auto-start",
+            "description": "Remove Adobe Creative Cloud from Windows startup. Disable auto-start service that loads in background.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
             "potential_impacts": [
-                "Web pages may load slightly slower on first visit (cache will rebuild)",
-                "Saved form data in browsers will be cleared"
+                "Adobe applications will not auto-start",
+                "Manual launch still available",
+                "Reduces boot time by approximately 5 seconds"
             ],
-            "affected_programs": [
-                "Google Chrome",
-                "Firefox",
-                "Microsoft Edge"
-            ],
-            "rollback_available": false,
-            "rollback_time_sec": 0,
+            "affected_programs": ["Adobe Creative Cloud"],
+            "rollback_available": true,
+            "rollback_time_sec": 5,
             "requires_restart": false,
-            "requires_admin": false,
+            "requires_admin": true,
             "data_loss_risk": false,
-            "backup_created": false,
-            "ai_confidence": 0.98,
-            "created_at": timestamp
+            "ai_confidence": 0.92
         }),
         "opt_3" => serde_json::json!({
             "id": "opt_3",
-            "title": "Optimize Memory Usage",
-            "description": "Monitors and reduces memory consumption by closing unnecessary background processes and compacting memory",
-            "category": "memory",
-            "risk_level": "low",
-            "estimated_time_to_apply_sec": 45,
-            "estimated_memory_freed_mb": 512,
+            "title": "Set Windows Search to delayed start",
+            "description": "Change Windows Search service from automatic to delayed start. Service will start 2 minutes after boot.",
+            "category": "service",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 10,
             "potential_impacts": [
-                "Some background applications may be terminated temporarily",
-                "Minimal performance impact (memory is reclaimed automatically)"
+                "File search will be unavailable for ~2 minutes after boot",
+                "Improves initial boot responsiveness",
+                "Reduces boot time by approximately 4 seconds"
             ],
-            "affected_programs": [
-                "Background services",
-                "Unused applications"
-            ],
-            "rollback_available": false,
-            "rollback_time_sec": 0,
+            "affected_programs": ["Windows Search"],
+            "rollback_available": true,
+            "rollback_time_sec": 10,
             "requires_restart": false,
             "requires_admin": true,
             "data_loss_risk": false,
-            "backup_created": false,
-            "ai_confidence": 0.92,
-            "created_at": timestamp
+            "ai_confidence": 0.88
         }),
         "opt_4" => serde_json::json!({
             "id": "opt_4",
-            "title": "Disable Unused Services",
-            "description": "Stops and disables Windows/system services that are not needed, reducing resource usage and improving responsiveness",
-            "category": "services",
-            "risk_level": "medium",
-            "estimated_time_to_apply_sec": 90,
+            "title": "Disable Dropbox auto-start",
+            "description": "Remove Dropbox from Windows startup programs. Dropbox can be manually launched when needed for sync.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
             "potential_impacts": [
-                "Some features like Windows Search may be slower or unavailable",
-                "Bluetooth or specific hardware features may be disabled",
-                "Remote access or network services may be affected"
+                "Dropbox will not start automatically",
+                "File synchronization will start only when manually launched",
+                "Reduces boot time by approximately 3 seconds"
             ],
-            "affected_services": [
-                "Windows Search",
-                "Print Spooler",
-                "Remote Registry Service"
-            ],
+            "affected_programs": ["Dropbox"],
             "rollback_available": true,
-            "rollback_time_sec": 60,
-            "requires_restart": true,
+            "rollback_time_sec": 5,
+            "requires_restart": false,
             "requires_admin": true,
             "data_loss_risk": false,
-            "backup_created": true,
-            "backup_location": "Registry Snapshot",
-            "ai_confidence": 0.88,
-            "created_at": timestamp
+            "ai_confidence": 0.85
         }),
-        _ => {
-            return Err(format!("Unknown optimization ID: '{}'", optimization_id));
-        }
+        _ => return Err(format!("Unknown optimization ID: {}", optimization_id))
+    };
+
+    Ok(details)
+}
+
+#[tauri::command]
+fn get_optimization_details(
+    state: State<AppState>,
+    optimization_id: String,
+) -> Result<serde_json::Value, String> {
+    // Validate optimization ID
+    validate_optimization_id(&optimization_id)?;
+
+    // Get details from boot optimizer
+    let boot_optimizer = state.boot_optimizer.lock()
+        .map_err(|e| format!("Failed to lock boot optimizer: {}", e))?;
+
+    // Map optimization IDs to details
+    let details = match optimization_id.as_str() {
+        "opt_1" => serde_json::json!({
+            "id": "opt_1",
+            "title": "Disable Microsoft Teams auto-start",
+            "description": "Remove Microsoft Teams from Windows startup programs. Teams can be manually launched when needed.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
+            "potential_impacts": [
+                "Microsoft Teams will no longer start automatically at boot",
+                "Teams can still be launched manually from Start menu",
+                "Reduces boot time by approximately 8 seconds"
+            ],
+            "affected_programs": ["Microsoft Teams"],
+            "rollback_available": true,
+            "rollback_time_sec": 5,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.95
+        }),
+        "opt_2" => serde_json::json!({
+            "id": "opt_2",
+            "title": "Disable Adobe Creative Cloud auto-start",
+            "description": "Remove Adobe Creative Cloud from Windows startup. Disable auto-start service that loads in background.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
+            "potential_impacts": [
+                "Adobe applications will not auto-start",
+                "Manual launch still available",
+                "Reduces boot time by approximately 5 seconds"
+            ],
+            "affected_programs": ["Adobe Creative Cloud"],
+            "rollback_available": true,
+            "rollback_time_sec": 5,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.92
+        }),
+        "opt_3" => serde_json::json!({
+            "id": "opt_3",
+            "title": "Set Windows Search to delayed start",
+            "description": "Change Windows Search service from automatic to delayed start. Service will start 2 minutes after boot.",
+            "category": "service",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 10,
+            "potential_impacts": [
+                "File search will be unavailable for ~2 minutes after boot",
+                "Improves initial boot responsiveness",
+                "Reduces boot time by approximately 4 seconds"
+            ],
+            "affected_programs": ["Windows Search"],
+            "rollback_available": true,
+            "rollback_time_sec": 10,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.88
+        }),
+        "opt_4" => serde_json::json!({
+            "id": "opt_4",
+            "title": "Disable Dropbox auto-start",
+            "description": "Remove Dropbox from Windows startup programs. Dropbox can be manually launched when needed for sync.",
+            "category": "startup",
+            "risk_level": "safe",
+            "estimated_time_to_apply_sec": 5,
+            "potential_impacts": [
+                "Dropbox will not start automatically",
+                "File synchronization will start only when manually launched",
+                "Reduces boot time by approximately 3 seconds"
+            ],
+            "affected_programs": ["Dropbox"],
+            "rollback_available": true,
+            "rollback_time_sec": 5,
+            "requires_restart": false,
+            "requires_admin": true,
+            "data_loss_risk": false,
+            "ai_confidence": 0.85
+        }),
+        _ => return Err(format!("Unknown optimization ID: {}", optimization_id))
     };
 
     Ok(details)
@@ -757,12 +383,13 @@ fn apply_optimization(
     // The confirm flag is a safety gate: callers must set it to true to
     // proceed. Returning an error (not a "success") when it is false
     // prevents the UI from silently discarding unconfirmed actions.
-    // Frontends should first call get_optimization_details() to retrieve full
-    // impact information and display it in a detailed confirmation dialog.
     if !confirm {
-        return Err(
-            "Confirmation required: call get_optimization_details() first to review risks and impacts, then set confirm=true to apply.".to_string()
-        );
+        return Err(format!(
+            "Confirmation required to apply optimization. \
+             Call get_optimization_details('{}') to see what this optimization will change, \
+             then set confirm to true to proceed.",
+            optimization_id
+        ));
     }
 
     enforce_rate_limit(&state, "apply_optimization", OPTIMIZATION_LIMIT)?;
@@ -1422,6 +1049,7 @@ pub fn run() {
             toggle_startup_program,
             analyze_system,
             get_optimization_suggestions,
+            get_optimization_details,
             apply_optimization,
             rollback_optimization,
             clean_temp_files,
